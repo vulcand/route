@@ -385,6 +385,10 @@ func (e *trieNode) match(i *charIter) *match {
 		}
 		i.setPosition(p)
 	}
+	// Child nodes did not match and we at the boundary
+	if len(e.matches) != 0 && i.level() > e.level {
+		return e.matches[0]
+	}
 	return nil
 }
 

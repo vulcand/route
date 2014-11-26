@@ -61,14 +61,7 @@ func (p *pathMapper) newIter(r *http.Request) *charIter {
 }
 
 func (p *pathMapper) mapRequest(r *http.Request) string {
-	path, err := RawPath(r.RequestURI)
-	if err != nil {
-		path = r.URL.Path
-	}
-	if len(path) == 0 {
-		return "/"
-	}
-	return path
+	return rawPath(r)
 }
 
 type hostMapper struct {

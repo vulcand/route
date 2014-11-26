@@ -1,32 +1,33 @@
 package route
 
 import (
-	"fmt"
-	"net/url"
+	"net/http"
 	"strings"
 )
 
 // RawPath returns escaped url path section
-func RawPath(in string) (string, error) {
-	u, err := url.ParseRequestURI(in)
-	if err != nil {
-		return "", err
-	}
-	path := ""
-	if u.Opaque != "" {
-		path = u.Opaque
-	} else if u.Host == "" {
-		path = in
-	} else {
-		vals := strings.SplitN(in, u.Host, 2)
-		if len(vals) != 2 {
-			return "", fmt.Errorf("failed to parse url")
+func rawPath(r *http.Request) string {
+	// If there are no escape symbols, don't extract raw path
+	if !strings.ContainsRune(r.RequestURI, '%') {
+		if len(r.URL.Path) == 0 {
+			return "/"
 		}
-		path = vals[1]
+		return r.URL.Path
+	}
+	path := r.RequestURI
+	if path == "" {
+		path = "/"
+	}
+	// This is absolute URI, split host and port
+	if strings.Contains(path, "://") {
+		vals := strings.SplitN(path, r.URL.Host, 2)
+		if len(vals) == 2 {
+			path = vals[1]
+		}
 	}
 	idx := strings.IndexRune(path, '?')
 	if idx == -1 {
-		return path, nil
+		return path
 	}
-	return path[:idx], nil
+	return path[:idx]
 }

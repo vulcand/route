@@ -299,6 +299,28 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"application/json"}}},
 					match: "m2",
 				},
+				try{
+					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"text/plain"}}},
+					match: "m1",
+				},
+			},
+		},
+		{
+			name: "Catch all match for content-type",
+			routes: []route{
+				route{`Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "<string>/<string>")`, "m1"},
+				route{`Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, "m2"},
+			},
+			expected: 1,
+			tries: []try{
+				try{
+					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"text/plain"}}},
+					match: "m1",
+				},
+				try{
+					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"application/json"}}},
+					match: "m2",
+				},
 			},
 		},
 		{
