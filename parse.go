@@ -15,7 +15,8 @@ func parse(expression string, result *match) (matcher, error) {
 			"Path":       pathTrieMatcher,
 			"PathRegexp": pathRegexpMatcher,
 
-			"Method": methodTrieMatcher,
+			"Method":       methodTrieMatcher,
+			"MethodRegexp": methodRegexpMatcher,
 
 			"Header":       headerTrieMatcher,
 			"HeaderRegexp": headerRegexpMatcher,
