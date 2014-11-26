@@ -1,4 +1,8 @@
-route
+Route
 =====
 
-HTTP request routing library and language
+HTTP request routing language and library.
+
+Documentation:
+
+http://godoc.org/github.com/mailgun/route
