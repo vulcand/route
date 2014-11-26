@@ -4,17 +4,20 @@ import (
 	"fmt"
 )
 
+// charPos stores the position in the iterator
 type charPos struct {
 	i  int
 	si int
 }
 
+// charIter is a iterator over sequence of strings, returns byte-by-byte characters in string by string
 type charIter struct {
-	i  int
-	si int
+	i  int // position in the current string
+	si int // position in the array of strings
 
-	seq []string
-	sep []byte
+	seq []string // sequence of strings, e.g. ["GET", "/path"]
+	sep []byte   // every string in the sequence has an associated separator used for trie matching, e.g. path uses '/' for separator
+	// so sequence ["a.host", "/path "]has acoompanying separators ['.', '/']
 }
 
 func newIter(seq []string, sep []byte) *charIter {
@@ -63,6 +66,7 @@ func (r *charIter) pushBack() {
 	r.i--
 }
 
+// next returns current byte in the sequence, separator corresponding to that byte, and boolean idicator of whether it's the end of the sequence
 func (r *charIter) next() (byte, byte, bool) {
 	// we have reached the last string in the index, end
 	if r.isEnd() {

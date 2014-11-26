@@ -271,7 +271,7 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
 				route{`Host("h2") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, "m2"},
 			},
-			expected: 2,
+			expected: 1,
 			tries: []try{
 				try{
 					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
@@ -279,6 +279,24 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 				},
 				try{
 					r:     req{url: "http://h2/r1", method: "POST", host: "h2", headers: http.Header{"Content-Type": []string{"application/json"}}},
+					match: "m2",
+				},
+			},
+		},
+		{
+			name: "Match by method, path and hostname and header for same hosts",
+			routes: []route{
+				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
+				route{`Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, "m2"},
+			},
+			expected: 1,
+			tries: []try{
+				try{
+					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
+					match: "m1",
+				},
+				try{
+					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"application/json"}}},
 					match: "m2",
 				},
 			},

@@ -5,12 +5,13 @@ import (
 	"strings"
 )
 
-// requestMapper maps the request to string
+// requestMapper maps the request to string e.g. maps request to it's hostname, or request to header
 type requestMapper interface {
 	// separator returns the separator that makes sense for this request, e.g. / for urls or . for domains
 	separator() byte
-	// equals returns true if two mappers are equivalent
-	equals(requestMapper) bool
+	// equals returns the equivalent mapper if the two mappers are equivalent, e.g. map to the same sequence
+	// mappers are also equivalent if one mapper is subset of another, e.g. combined mapper (host, path) is equivalent of (host) mapper
+	equivalent(requestMapper) requestMapper
 	// mapRequest maps request to string, e.g. request to it's URL path
 	mapRequest(r *http.Request) string
 	// newIter returns the iterator instead of string for stream matchers
@@ -24,9 +25,12 @@ func (m *methodMapper) separator() byte {
 	return methodSep
 }
 
-func (m *methodMapper) equals(o requestMapper) bool {
+func (m *methodMapper) equivalent(o requestMapper) requestMapper {
 	_, ok := o.(*methodMapper)
-	return ok
+	if ok {
+		return m
+	}
+	return nil
 }
 
 func (m *methodMapper) mapRequest(r *http.Request) string {
@@ -44,9 +48,12 @@ func (m *pathMapper) separator() byte {
 	return pathSep
 }
 
-func (p *pathMapper) equals(o requestMapper) bool {
+func (p *pathMapper) equivalent(o requestMapper) requestMapper {
 	_, ok := o.(*pathMapper)
-	return ok
+	if ok {
+		return p
+	}
+	return nil
 }
 
 func (p *pathMapper) newIter(r *http.Request) *charIter {
@@ -67,9 +74,12 @@ func (p *pathMapper) mapRequest(r *http.Request) string {
 type hostMapper struct {
 }
 
-func (p *hostMapper) equals(o requestMapper) bool {
+func (p *hostMapper) equivalent(o requestMapper) requestMapper {
 	_, ok := o.(*hostMapper)
-	return ok
+	if ok {
+		return p
+	}
+	return nil
 }
 
 func (m *hostMapper) separator() byte {
@@ -88,9 +98,12 @@ type headerMapper struct {
 	header string
 }
 
-func (h *headerMapper) equals(o requestMapper) bool {
+func (h *headerMapper) equivalent(o requestMapper) requestMapper {
 	hm, ok := o.(*headerMapper)
-	return ok && hm.header == h.header
+	if ok && hm.header == h.header {
+		return h
+	}
+	return nil
 }
 
 func (m *headerMapper) separator() byte {
@@ -146,20 +159,30 @@ func (s *seqMapper) separator() byte {
 	return s.seq[0].separator()
 }
 
-func (s *seqMapper) equals(o requestMapper) bool {
+func (s *seqMapper) equivalent(o requestMapper) requestMapper {
 	so, ok := o.(*seqMapper)
 	if !ok {
-		return false
+		return nil
 	}
-	if len(s.seq) != len(so.seq) {
-		return false
+
+	var longer, shorter *seqMapper
+	if len(s.seq) > len(so.seq) {
+		longer = s
+		shorter = so
+	} else {
+		longer = so
+		shorter = s
 	}
-	for i, _ := range s.seq {
-		if !s.seq[i].equals(so.seq[i]) {
-			return false
+	for i, _ := range longer.seq {
+		// shorter is subset of longer, return longer sequence mapper
+		if i >= len(shorter.seq)-1 {
+			return longer
+		}
+		if longer.seq[i].equivalent(shorter.seq[i]) == nil {
+			return nil
 		}
 	}
-	return true
+	return longer
 }
 
 const (

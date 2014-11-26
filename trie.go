@@ -17,7 +17,8 @@ func init() {
 
 // Trie http://en.wikipedia.org/wiki/Trie for url matching with support of named parameters
 type trie struct {
-	root   *trieNode
+	root *trieNode
+	// mapper takes the request and returns sequence that can be matched
 	mapper requestMapper
 }
 
@@ -68,7 +69,7 @@ func (t *trie) setMatch(result *match) {
 // Tries can merge with other tries
 func (t *trie) canMerge(m matcher) bool {
 	ot, ok := m.(*trie)
-	return ok && t.mapper.equals(ot.mapper)
+	return ok && t.mapper.equivalent(ot.mapper) != nil
 }
 
 // Merge takes the other trie and modifies itself to match the passed trie as well.
@@ -79,11 +80,16 @@ func (p *trie) merge(m matcher) (matcher, error) {
 	if !ok {
 		return nil, fmt.Errorf("Can't merge %T and %T", p, m)
 	}
+	mapper := p.mapper.equivalent(other.mapper)
+	if mapper == nil {
+		return nil, fmt.Errorf("Can't merge %T and %T", p, m)
+	}
+
 	root, err := p.root.merge(other.root)
 	if err != nil {
 		return nil, err
 	}
-	return &trie{root: root, mapper: p.mapper}, nil
+	return &trie{root: root, mapper: mapper}, nil
 }
 
 // Takes the request and returns the location if the request path matches any of it's paths
@@ -378,11 +384,6 @@ func (e *trieNode) match(i *charIter) *match {
 			return match
 		}
 		i.setPosition(p)
-	}
-
-	// If there are no matches in the child nodes let us return the current match.
-	if len(e.matches) != 0 {
-		return e.matches[0]
 	}
 	return nil
 }
