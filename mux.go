@@ -22,7 +22,7 @@ func NewMux() *Mux {
 
 // Handle adds http handler for route expression
 func (m *Mux) Handle(expr string, handler http.Handler) error {
-	return m.router.AddRoute(expr, handler)
+	return m.router.UpsertRoute(expr, handler)
 }
 
 // Handle adds http handler function for route expression
