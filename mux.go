@@ -30,6 +30,10 @@ func (m *Mux) HandleFunc(expr string, handler func(http.ResponseWriter, *http.Re
 	return m.Handle(expr, http.HandlerFunc(handler))
 }
 
+func (m *Mux) Remove(expr string) error {
+	return m.router.RemoveRoute(expr)
+}
+
 // ServeHTTP routes the request and passes it to handler
 func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h, err := m.router.Route(r)
