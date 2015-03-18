@@ -377,6 +377,11 @@ func (s *intMatcher) match(iter *charIter) bool {
 		c, sep, ok := iter.next()
 		count++
 
+		// if it's the end of the string, it's a match
+		if !ok {
+			return true
+		}
+
 		// if the current character is not a number:
 		//  - it's either a separator that means it's a match
 		//  - it's some other character that means it's not a match
@@ -390,11 +395,6 @@ func (s *intMatcher) match(iter *charIter) bool {
 				}
 				return false
 			}
-		}
-
-		// if it's the end of the string, it's a match
-		if !ok {
-			return true
 		}
 	}
 }
