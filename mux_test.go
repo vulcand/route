@@ -38,6 +38,36 @@ func (s *MuxSuite) TestRouting(c *C) {
 	c.Assert(t.buf.String(), Equals, "/p")
 }
 
+func (s *MuxSuite) TestInitHandlers(c *C) {
+	r := NewMux()
+
+	handlers := map[string]interface{} {
+		`Host("localhost") && Path("/p")`: func(w http.ResponseWriter, req *http.Request) {
+			w.WriteHeader(201)
+			w.Write([]byte("/p"))
+		},
+		`Host("localhost") && Path("/f")`: func(w http.ResponseWriter, req *http.Request) {
+			w.WriteHeader(201)
+			w.Write([]byte("/f"))
+		},
+	}
+
+	err := r.InitHandlers(handlers)
+	c.Assert(err, IsNil)
+
+	t := newWriter()
+	r.ServeHTTP(t, makeReq(req{url: "/p", host: "localhost"}))
+
+	c.Assert(t.header, Equals, 201)
+	c.Assert(t.buf.String(), Equals, "/p")
+
+	t = newWriter()
+	r.ServeHTTP(t, makeReq(req{url: "/f", host: "localhost"}))
+
+	c.Assert(t.header, Equals, 201)
+	c.Assert(t.buf.String(), Equals, "/f")
+}
+
 type testWriter struct {
 	header  int
 	buf     *bytes.Buffer
