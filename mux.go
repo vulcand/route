@@ -34,11 +34,12 @@ func (m *Mux) AddAlias(match, replace string) {
 	m.aliases = append(m.aliases, alias{match: match, replace: replace})
 }
 
-func (m *Mux) applyAliases(expr string) string {
-	for _, alias := range m.aliases {
-		expr = strings.Replace(expr, alias.match, alias.replace, -1)
+func (m *Mux) applyAliases(expr string) (string, bool) {
+	alias := expr
+	for _, a := range m.aliases {
+		alias = strings.Replace(alias, a.match, a.replace, -1)
 	}
-	return expr
+	return alias, alias != expr
 }
 
 // This adds a map of handlers and expressions in a single call. This allows
@@ -52,7 +53,10 @@ func (m *Mux) InitHandlers(handlers map[string]interface{}) error {
 	// Apply aliases to routes
 	modified := make(map[string]interface{}, len(handlers))
 	for k, v := range handlers {
-		k = m.applyAliases(k)
+		// If an alias matched, add the modified route to the handlers passed
+		if alias, ok := m.applyAliases(k); ok {
+			modified[alias] = v
+		}
 		modified[k] = v
 	}
 	return m.router.InitRoutes(modified)
@@ -60,19 +64,34 @@ func (m *Mux) InitHandlers(handlers map[string]interface{}) error {
 
 // Handle adds http handler for route expression
 func (m *Mux) Handle(expr string, handler http.Handler) error {
-	expr = m.applyAliases(expr)
-	return m.router.UpsertRoute(expr, handler)
+	if err := m.router.UpsertRoute(expr, handler); err != nil {
+		return err
+	}
+
+	if alias, ok := m.applyAliases(expr); ok {
+		if err := m.router.UpsertRoute(alias, handler); err != nil {
+			return fmt.Errorf("while adding alias handler: %s", err)
+		}
+	}
+	return nil
 }
 
 // Handle adds http handler function for route expression
 func (m *Mux) HandleFunc(expr string, handler func(http.ResponseWriter, *http.Request)) error {
-	expr = m.applyAliases(expr)
 	return m.Handle(expr, http.HandlerFunc(handler))
 }
 
 func (m *Mux) Remove(expr string) error {
-	expr = m.applyAliases(expr)
-	return m.router.RemoveRoute(expr)
+	if err := m.router.RemoveRoute(expr); err != nil {
+		return err
+	}
+
+	if alias, ok := m.applyAliases(expr); ok {
+		if err := m.router.RemoveRoute(alias); err != nil {
+			return fmt.Errorf("while removing alias handler: %s", err)
+		}
+	}
+	return nil
 }
 
 // ServeHTTP routes the request and passes it to handler

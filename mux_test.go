@@ -99,31 +99,54 @@ func (s *MuxSuite) TestAddAlias(c *C) {
 	for _, t := range tests {
 		r := NewMux()
 		r.AddAlias(`Host("localhost")`, `Host("vulcand.net")`)
+		r.AddAlias(`Path("/p")`, `Path("/g")`)
 
 		err := t.Init(r)
 		c.Assert(err, IsNil)
 
-		// Should not route localhost requests
+		// Should continue to route non aliased requests
 		w := newWriter()
 		r.ServeHTTP(w, makeReq(req{url: "/p", host: "localhost"}))
-		c.Assert(w.header, Equals, 404)
-
-		// Should route vulcand.net
-		w = newWriter()
-		r.ServeHTTP(w, makeReq(req{url: "/p", host: "vulcand.net"}))
 		c.Assert(w.header, Equals, 201)
-		c.Assert(w.buf.String(), Equals, "/p")
+
+		// Should route requests to /g for vulcand.net
+		r.ServeHTTP(w, makeReq(req{url: "/g", host: "vulcand.net"}))
+		c.Assert(w.header, Equals, 201)
 
 		// After removing the expression
 		err = r.Remove(expr)
 		c.Assert(err, IsNil)
 
-		// Should NOT route vulcand.net
+		// Should NOT route /g vulcand.net
 		w = newWriter()
-		r.ServeHTTP(w, makeReq(req{url: "/p", host: "vulcand.net"}))
+		r.ServeHTTP(w, makeReq(req{url: "/g", host: "vulcand.net"}))
 		c.Assert(w.header, Equals, 404)
 	}
+}
 
+func (s *MuxSuite) TestAddAliasOrder(c *C) {
+	f := func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(201)
+		w.Write([]byte("/p"))
+	}
+
+	r := NewMux()
+	// The order in which alases are added can clobber previous alases
+	r.AddAlias(`Host("localhost")`, `Host("vulcand.net")`)
+	r.AddAlias(`Host("vulcand.net")`, `Host("mailgun.net")`)
+
+	err := r.InitHandlers(map[string]interface{}{
+		`Host("localhost") && Path("/p")`: http.HandlerFunc(f)})
+	c.Assert(err, IsNil)
+
+	// Should continue to route non aliased requests
+	w := newWriter()
+	r.ServeHTTP(w, makeReq(req{url: "/p", host: "localhost"}))
+	c.Assert(w.header, Equals, 201)
+
+	// Should route requests to /g for vulcand.net
+	r.ServeHTTP(w, makeReq(req{url: "/p", host: "mailgun.net"}))
+	c.Assert(w.header, Equals, 201)
 }
 
 type testWriter struct {
