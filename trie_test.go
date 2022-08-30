@@ -67,6 +67,15 @@ root(0)
     match(0:<string:param1>)
 `)
 
+	// Path with `path` parameter
+	s.testPathToTrie(c, "/m/<path:param1>", `
+root(0)
+ node(0:/)
+  node(0:m)
+   node(0:/)
+    match(0:<path:param1>)
+`)
+
 	// Path with  parameter in the middle
 	s.testPathToTrie(c, "/m/<string:param1>/a", `
 root(0)
@@ -215,7 +224,7 @@ func (s *TrieSuite) TestMergeAndMatchCases(c *C) {
 			"http://google.com",
 			"/",
 		},
-		// Choosing longest path
+		// Choosing the longest path
 		{
 			[]string{"/v2/domains/", "/v2/domains/domain1"},
 			"http://google.com/v2/domains/domain1",

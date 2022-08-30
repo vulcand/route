@@ -301,10 +301,50 @@ func makeMatcher(matcherType string, matcherArgs []string) (patternMatcher, erro
 	switch matcherType {
 	case "string":
 		return newStringMatcher(matcherArgs)
+	case "path":
+		return newPathMatcher(matcherArgs)
 	case "int":
 		return newIntMatcher(matcherArgs)
 	}
 	return nil, fmt.Errorf("unsupported matcher: %s", matcherType)
+}
+
+func newPathMatcher(args []string) (patternMatcher, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("expected only one parameter - variable name, got: %s", args)
+	}
+	return &pathMatcher{name: args[0]}, nil
+}
+
+type pathMatcher struct {
+	name string
+}
+
+func (m *pathMatcher) String() string {
+	return fmt.Sprintf("<path:%s>", m.name)
+}
+
+func (m *pathMatcher) getName() string {
+	return m.name
+}
+
+func (m *pathMatcher) match(i *charIter) bool {
+	m.grabValue(i)
+	return true
+}
+
+func (m *pathMatcher) equals(other patternMatcher) bool {
+	_, ok := other.(*pathMatcher)
+	return ok && other.getName() == m.getName()
+}
+
+func (m *pathMatcher) grabValue(i *charIter) {
+	for {
+		_, _, ok := i.next()
+		if !ok {
+			return
+		}
+	}
 }
 
 func newStringMatcher(args []string) (patternMatcher, error) {
