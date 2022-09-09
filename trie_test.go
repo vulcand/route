@@ -10,56 +10,58 @@ import (
 	"testing"
 	"time"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestTrie(t *testing.T) { TestingT(t) }
-
 type TrieSuite struct {
+	suite.Suite
 }
 
-var _ = Suite(&TrieSuite{})
-
-func (s *TrieSuite) TestParseTrieSuccess(c *C) {
-	t, r := makeTrie(c, "/", &pathMapper{}, "val")
-	c.Assert(t.match(makeReq(req{url: "http://google.com"})), DeepEquals, r)
+func TestTrieSuite(t *testing.T) {
+	suite.Run(t, new(TrieSuite))
 }
 
-func (s *TrieSuite) TestParseTrieFailures(c *C) {
+func (s *TrieSuite) TestParseTrieSuccess() {
+	m, r := makeTrie(s.T(), "/", &pathMapper{}, "val")
+	s.Equal(r, m.match(makeReq(req{url: "http://google.com"})))
+}
+
+func (s *TrieSuite) TestParseTrieFailures() {
 	paths := []string{
 		"",                       // empty path
 		"/<uint8:hi>",            // unsupported matcher
 		"/<string:hi:omg:hello>", // unsupported matcher parameters
 	}
 	for _, p := range paths {
-		t, err := newTrieMatcher(p, &pathMapper{}, &match{val: "v1"})
-		c.Assert(err, NotNil)
-		c.Assert(t, IsNil)
+		m, err := newTrieMatcher(p, &pathMapper{}, &match{val: "v1"})
+		s.Error(err)
+		s.Nil(m)
 	}
 }
 
-func (s *TrieSuite) testPathToTrie(c *C, p, trie string) {
-	t, _ := makeTrie(c, p, &pathMapper{}, &match{val: "v"})
-	c.Assert(printTrie(t), Equals, trie)
+func (s *TrieSuite) testPathToTrie(p, trie string) {
+	m, _ := makeTrie(s.T(), p, &pathMapper{}, &match{val: "v"})
+	s.Equal(trie, printTrie(m))
 }
 
-func (s *TrieSuite) TestPrintTries(c *C) {
+func (s *TrieSuite) TestPrintTries() {
 	// Simple path
-	s.testPathToTrie(c, "/a", `
+	s.testPathToTrie("/a", `
 root(0)
  node(0:/)
   match(0:a)
 `)
 
 	// Path wit default string parameter
-	s.testPathToTrie(c, "/<param1>", `
+	s.testPathToTrie("/<param1>", `
 root(0)
  node(0:/)
   match(0:<string:param1>)
 `)
 
 	// Path with trailing parameter
-	s.testPathToTrie(c, "/m/<string:param1>", `
+	s.testPathToTrie("/m/<string:param1>", `
 root(0)
  node(0:/)
   node(0:m)
@@ -68,7 +70,7 @@ root(0)
 `)
 
 	// Path with `path` parameter
-	s.testPathToTrie(c, "/m/<path:param1>", `
+	s.testPathToTrie("/m/<path:param1>", `
 root(0)
  node(0:/)
   node(0:m)
@@ -77,7 +79,7 @@ root(0)
 `)
 
 	// Path with  parameter in the middle
-	s.testPathToTrie(c, "/m/<string:param1>/a", `
+	s.testPathToTrie("/m/<string:param1>/a", `
 root(0)
  node(0:/)
   node(0:m)
@@ -88,7 +90,7 @@ root(0)
 `)
 
 	// Path with two parameters
-	s.testPathToTrie(c, "/m/<string:param1>/<string:param2>", `
+	s.testPathToTrie("/m/<string:param1>/<string:param2>", `
 root(0)
  node(0:/)
   node(0:m)
@@ -100,12 +102,12 @@ root(0)
 
 }
 
-func (s *TrieSuite) TestMergeTriesCommonPrefix(c *C) {
-	t1, l1 := makeTrie(c, "/a", &pathMapper{}, &match{val: "v1"})
-	t2, l2 := makeTrie(c, "/b", &pathMapper{}, &match{val: "v2"})
+func (s *TrieSuite) TestMergeTriesCommonPrefix() {
+	t1, l1 := makeTrie(s.T(), "/a", &pathMapper{}, &match{val: "v1"})
+	t2, l2 := makeTrie(s.T(), "/b", &pathMapper{}, &match{val: "v2"})
 
 	t3, err := t1.merge(t2)
-	c.Assert(err, IsNil)
+	s.Require().NoError(err)
 
 	expected := `
 root(0)
@@ -113,18 +115,18 @@ root(0)
   match(0:a)
   match(0:b)
 `
-	c.Assert(printTrie(t3.(*trie)), Equals, expected)
+	s.Equal(expected, printTrie(t3.(*trie)))
 
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a"})), Equals, l1)
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/b"})), Equals, l2)
+	s.Equal(l1, t3.match(makeReq(req{url: "http://google.com/a"})))
+	s.Equal(l2, t3.match(makeReq(req{url: "http://google.com/b"})))
 }
 
-func (s *TrieSuite) TestMergeTriesSubtree(c *C) {
-	t1, l1 := makeTrie(c, "/aa", &pathMapper{}, &match{val: "v1"})
-	t2, l2 := makeTrie(c, "/a", &pathMapper{}, &match{val: "v2"})
+func (s *TrieSuite) TestMergeTriesSubtree() {
+	t1, l1 := makeTrie(s.T(), "/aa", &pathMapper{}, &match{val: "v1"})
+	t2, l2 := makeTrie(s.T(), "/a", &pathMapper{}, &match{val: "v2"})
 
 	t3, err := t1.merge(t2)
-	c.Assert(err, IsNil)
+	s.Require().NoError(err)
 
 	expected := `
 root(0)
@@ -132,19 +134,19 @@ root(0)
   match(0:a)
    match(0:a)
 `
-	c.Assert(printTrie(t3.(*trie)), Equals, expected)
+	s.Equal(printTrie(t3.(*trie)), expected)
 
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/aa"})), Equals, l1)
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a"})), Equals, l2)
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/b"})), IsNil)
+	s.Equal(l1, t3.match(makeReq(req{url: "http://google.com/aa"})))
+	s.Equal(l2, t3.match(makeReq(req{url: "http://google.com/a"})))
+	s.Nil(t3.match(makeReq(req{url: "http://google.com/b"})))
 }
 
-func (s *TrieSuite) TestMergeTriesWithCommonParameter(c *C) {
-	t1, l1 := makeTrie(c, "/a/<string:name>/b", &pathMapper{}, &match{val: "v1"})
-	t2, l2 := makeTrie(c, "/a/<string:name>/c", &pathMapper{}, &match{val: "v2"})
+func (s *TrieSuite) TestMergeTriesWithCommonParameter() {
+	t1, l1 := makeTrie(s.T(), "/a/<string:name>/b", &pathMapper{}, &match{val: "v1"})
+	t2, l2 := makeTrie(s.T(), "/a/<string:name>/c", &pathMapper{}, &match{val: "v2"})
 
 	t3, err := t1.merge(t2)
-	c.Assert(err, IsNil)
+	s.Require().NoError(err)
 
 	expected := `
 root(0)
@@ -156,19 +158,19 @@ root(0)
       match(0:b)
       match(0:c)
 `
-	c.Assert(printTrie(t3.(*trie)), Equals, expected)
+	s.Equal(printTrie(t3.(*trie)), expected)
 
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a/bla/b"})), Equals, l1)
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a/bla/c"})), Equals, l2)
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a/"})), IsNil)
+	s.Equal(t3.match(makeReq(req{url: "http://google.com/a/bla/b"})), l1)
+	s.Equal(t3.match(makeReq(req{url: "http://google.com/a/bla/c"})), l2)
+	s.Nil(t3.match(makeReq(req{url: "http://google.com/a/"})))
 }
 
-func (s *TrieSuite) TestMergeTriesWithDivergedParameter(c *C) {
-	t1, l1 := makeTrie(c, "/a/<string:name1>/b", &pathMapper{}, &match{val: "v1"})
-	t2, l2 := makeTrie(c, "/a/<string:name2>/c", &pathMapper{}, &match{val: "v2"})
+func (s *TrieSuite) TestMergeTriesWithDivergedParameter() {
+	t1, l1 := makeTrie(s.T(), "/a/<string:name1>/b", &pathMapper{}, &match{val: "v1"})
+	t2, l2 := makeTrie(s.T(), "/a/<string:name2>/c", &pathMapper{}, &match{val: "v2"})
 
 	t3, err := t1.merge(t2)
-	c.Assert(err, IsNil)
+	s.Require().NoError(err)
 
 	expected := `
 root(0)
@@ -182,31 +184,31 @@ root(0)
      node(0:/)
       match(0:c)
 `
-	c.Assert(printTrie(t3.(*trie)), Equals, expected)
+	s.Equal(printTrie(t3.(*trie)), expected)
 
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a/bla/b"})), Equals, l1)
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a/bla/c"})), Equals, l2)
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a/"})), IsNil)
+	s.Equal(l1, t3.match(makeReq(req{url: "http://google.com/a/bla/b"})))
+	s.Equal(l2, t3.match(makeReq(req{url: "http://google.com/a/bla/c"})))
+	s.Nil(t3.match(makeReq(req{url: "http://google.com/a/"})))
 }
 
-func (s *TrieSuite) TestMergeTriesWithSamePath(c *C) {
-	t1, l1 := makeTrie(c, "/a", &pathMapper{}, &match{val: "v1"})
-	t2, _ := makeTrie(c, "/a", &pathMapper{}, &match{val: "v2"})
+func (s *TrieSuite) TestMergeTriesWithSamePath() {
+	t1, l1 := makeTrie(s.T(), "/a", &pathMapper{}, &match{val: "v1"})
+	t2, _ := makeTrie(s.T(), "/a", &pathMapper{}, &match{val: "v2"})
 
 	t3, err := t1.merge(t2)
-	c.Assert(err, IsNil)
+	s.Require().NoError(err)
 
 	expected := `
 root(0)
  node(0:/)
   match(0:a)
 `
-	c.Assert(printTrie(t3.(*trie)), Equals, expected)
+	s.Equal(expected, printTrie(t3.(*trie)))
 	// The first location will match as it will always go first
-	c.Assert(t3.match(makeReq(req{url: "http://google.com/a"})), Equals, l1)
+	s.Equal(l1, t3.match(makeReq(req{url: "http://google.com/a"})))
 }
 
-func (s *TrieSuite) TestMergeAndMatchCases(c *C) {
+func (s *TrieSuite) TestMergeAndMatchCases() {
 	testCases := []struct {
 		trees    []string
 		url      string
@@ -214,93 +216,98 @@ func (s *TrieSuite) TestMergeAndMatchCases(c *C) {
 	}{
 		// Matching /
 		{
-			[]string{"/"},
-			"http://google.com/",
-			"/",
+			trees:    []string{"/"},
+			url:      "http://google.com/",
+			expected: "/",
 		},
 		// Matching / when there's no trailing / in url
 		{
-			[]string{"/"},
-			"http://google.com",
-			"/",
+			trees:    []string{"/"},
+			url:      "http://google.com",
+			expected: "/",
 		},
 		// Choosing the longest path
 		{
-			[]string{"/v2/domains/", "/v2/domains/domain1"},
-			"http://google.com/v2/domains/domain1",
-			"/v2/domains/domain1",
+			trees:    []string{"/v2/domains/", "/v2/domains/domain1"},
+			url:      "http://google.com/v2/domains/domain1",
+			expected: "/v2/domains/domain1",
 		},
 		// Named parameters
 		{
-			[]string{"/v1/domains/<string:name>", "/v2/domains/<string:name>"},
-			"http://google.com/v2/domains/domain1",
-			"/v2/domains/<string:name>",
+			trees:    []string{"/v1/domains/<string:name>", "/v2/domains/<string:name>"},
+			url:      "http://google.com/v2/domains/domain1",
+			expected: "/v2/domains/<string:name>",
 		},
 		// Int matcher, match
 		{
-			[]string{"/v<int:version>/domains/<string:name>"},
-			"http://google.com/v42/domains/domain1",
-			"/v<int:version>/domains/<string:name>",
+			trees:    []string{"/v<int:version>/domains/<string:name>"},
+			url:      "http://google.com/v42/domains/domain1",
+			expected: "/v<int:version>/domains/<string:name>",
 		},
 		// Int matcher, no match
 		{
-			[]string{"/v<int:version>/domains/<string:name>", "/<string:version>/domains/<string:name>"},
-			"http://google.com/v42abc/domains/domain1",
-			"/<string:version>/domains/<string:name>",
+			trees:    []string{"/v<int:version>/domains/<string:name>", "/<string:version>/domains/<string:name>"},
+			url:      "http://google.com/v42abc/domains/domain1",
+			expected: "/<string:version>/domains/<string:name>",
 		},
 		// Different combinations of named parameters
 		{
-			[]string{"/v1/domains/<domain>", "/v2/users/<user>/mailboxes/<mbx>"},
-			"http://google.com/v2/users/u1/mailboxes/mbx1",
-			"/v2/users/<user>/mailboxes/<mbx>",
+			trees:    []string{"/v1/domains/<domain>", "/v2/users/<user>/mailboxes/<mbx>"},
+			url:      "http://google.com/v2/users/u1/mailboxes/mbx1",
+			expected: "/v2/users/<user>/mailboxes/<mbx>",
 		},
 		// Something that looks like a pattern, but it's not
 		{
-			[]string{"/v1/<hello"},
-			"http://google.com/v1/<hello",
-			"/v1/<hello",
+			trees:    []string{"/v1/<hello"},
+			url:      "http://google.com/v1/<hello",
+			expected: "/v1/<hello",
 		},
 	}
 	for _, tc := range testCases {
-		t, _ := makeTrie(c, tc.trees[0], &pathMapper{}, tc.trees[0])
+		t, _ := makeTrie(s.T(), tc.trees[0], &pathMapper{}, tc.trees[0])
 		for i, pattern := range tc.trees {
 			if i == 0 {
 				continue
 			}
-			t2, _ := makeTrie(c, pattern, &pathMapper{}, pattern)
+			t2, _ := makeTrie(s.T(), pattern, &pathMapper{}, pattern)
 			out, err := t.merge(t2)
-			c.Assert(err, IsNil)
+			s.Require().NoError(err)
 			t = out.(*trie)
 		}
 		out := t.match(makeReq(req{url: tc.url}))
-		c.Assert(out.val, Equals, tc.expected)
+		s.Equal(tc.expected, out.val)
 	}
 }
 
-func (s *TrieSuite) TestChainAndMatchCases(c *C) {
-	tcs := []chainTc{
-		chainTc{
+func (s *TrieSuite) TestChainAndMatchCases() {
+	tcs := []struct {
+		name     string
+		tries    []*trie
+		req      *http.Request
+		expected string
+	}{
+		{
 			name: "Chain method and path",
 			tries: []*trie{
-				newTrie(c, "GET", &methodMapper{}, "v1"),
-				newTrie(c, "/v1", &pathMapper{}, "v1"),
+				newTrie(s.T(), http.MethodGet, &methodMapper{}, "v1"),
+				newTrie(s.T(), "/v1", &pathMapper{}, "v1"),
 			},
-			req:      makeReq(req{url: "http://localhost/v1", method: "GET"}),
+			req:      makeReq(req{url: "http://localhost/v1", method: http.MethodGet}),
 			expected: "v1",
 		},
-		chainTc{
+		{
 			name: "Chain hostname, method and path",
 			tries: []*trie{
-				newTrie(c, "h1", &hostMapper{}, "v0"),
-				newTrie(c, "GET", &methodMapper{}, "v1"),
-				newTrie(c, "/v1", &pathMapper{}, "v2"),
+				newTrie(s.T(), "h1", &hostMapper{}, "v0"),
+				newTrie(s.T(), http.MethodGet, &methodMapper{}, "v1"),
+				newTrie(s.T(), "/v1", &pathMapper{}, "v2"),
 			},
-			req:      makeReq(req{url: "http://localhost/v1", method: "GET", host: "h1"}),
+			req:      makeReq(req{url: "http://localhost/v1", method: http.MethodGet, host: "h1"}),
 			expected: "v2",
 		},
 	}
 	for _, tc := range tcs {
-		comment := Commentf("%v", tc.name)
+		comment := fmt.Sprintf("%v", tc.name)
 		var out *trie
 		for _, t := range tc.tries {
 			if out == nil {
@@ -308,61 +315,50 @@ func (s *TrieSuite) TestChainAndMatchCases(c *C) {
 				continue
 			}
 			m, err := out.chain(t)
-			c.Assert(err, IsNil, comment)
+			s.Require().NoError(err)
 			out = m.(*trie)
 		}
 		result := out.match(tc.req)
-		c.Assert(result, NotNil, comment)
-		c.Assert(result.val, Equals, tc.expected, comment)
+		s.NotNil(result, comment)
+		s.Equal(tc.expected, result.val, comment)
 	}
 }
 
-type chainTc struct {
-	name     string
-	tries    []*trie
-	req      *http.Request
-	expected string
-}
-
-func (s *TrieSuite) BenchmarkMatching(c *C) {
+func BenchmarkMatching(b *testing.B) {
 	rndString := NewRndString()
 
-	t, _ := makeTrie(c, rndString.MakePath(20, 10), &pathMapper{}, "v")
+	m, _ := makeTrie(b, rndString.MakePath(20, 10), &pathMapper{}, "v")
 
 	for i := 0; i < 10000; i++ {
-		t2, _ := makeTrie(c, rndString.MakePath(20, 10), &pathMapper{}, "v")
-		out, err := t.merge(t2)
-		if err != nil {
-			c.Assert(err, IsNil)
-		}
-		t = out.(*trie)
+		t2, _ := makeTrie(b, rndString.MakePath(20, 10), &pathMapper{}, "v")
+		out, err := m.merge(t2)
+		require.NoError(b, err)
+		m = out.(*trie)
 	}
+
 	req := makeReq(req{url: fmt.Sprintf("http://google.com/%s", rndString.MakePath(20, 10))})
-	for i := 0; i < c.N; i++ {
-		t.match(req)
+	for i := 0; i < b.N; i++ {
+		m.match(req)
 	}
 }
 
-func cutTrie(index int, expressions []string) []string {
-	v := make([]string, 0, len(expressions)-1)
-	v = append(v, expressions[:index]...)
-	v = append(v, expressions[index+1:]...)
-	return v
-}
+func makeTrie(t testing.TB, expr string, mp requestMapper, val interface{}) (*trie, *match) {
+	t.Helper()
 
-func makeTrie(c *C, expr string, mp requestMapper, val interface{}) (*trie, *match) {
 	l := &match{
 		val: val,
 	}
-	t, err := newTrieMatcher(expr, mp, l)
-	c.Assert(err, IsNil)
-	c.Assert(t, NotNil)
-	return t, l
+	m, err := newTrieMatcher(expr, mp, l)
+	require.NoError(t, err)
+	require.NotNil(t, m)
+	return m, l
 }
 
-func newTrie(c *C, expr string, mp requestMapper, val interface{}) *trie {
-	t, _ := makeTrie(c, expr, mp, val)
-	return t
+func newTrie(t testing.TB, expr string, mp requestMapper, val interface{}) *trie {
+	t.Helper()
+
+	m, _ := makeTrie(t, expr, mp, val)
+	return m
 }
 
 type req struct {
@@ -404,10 +400,10 @@ func (r *RndString) Read(p []byte) (n int, err error) {
 
 func (r *RndString) MakeString(n int) string {
 	buffer := &bytes.Buffer{}
-	io.CopyN(buffer, r, int64(n))
+	_, _ = io.CopyN(buffer, r, int64(n))
 	return buffer.String()
 }
 
-func (s *RndString) MakePath(varlen, minlen int) string {
-	return fmt.Sprintf("/%s", s.MakeString(rand.Intn(varlen)+minlen))
+func (r *RndString) MakePath(varLen, minLen int) string {
+	return fmt.Sprintf("/%s", r.MakeString(rand.Intn(varLen)+minLen))
 }

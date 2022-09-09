@@ -4,78 +4,82 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/suite"
 )
 
 type RouteSuite struct {
+	suite.Suite
 }
 
-var _ = Suite(&RouteSuite{})
+func TestRouteSuite(t *testing.T) {
+	suite.Run(t, new(RouteSuite))
+}
 
-func (s *RouteSuite) TestEmptyOperationsSucceed(c *C) {
+func (s *RouteSuite) TestEmptyOperationsSucceed() {
 	r := New()
 
-	c.Assert(r.GetRoute("bla"), IsNil)
-	c.Assert(r.RemoveRoute("bla"), IsNil)
+	s.Nil(r.GetRoute("bla"))
+	s.Nil(r.RemoveRoute("bla"))
 
 	l, err := r.Route(makeReq(req{url: "http://google.com/blabla"}))
-	c.Assert(err, IsNil)
-	c.Assert(l, IsNil)
+	s.Nil(err)
+	s.Nil(l)
 }
 
-func (s *RouteSuite) TestCRUD(c *C) {
+func (s *RouteSuite) TestCRUD() {
 	r := New()
 
 	match := "m"
 	rt := `Path("/r1")`
-	c.Assert(r.AddRoute(rt, match), IsNil)
-	c.Assert(r.GetRoute(rt), Equals, match)
-	c.Assert(r.RemoveRoute(rt), IsNil)
-	c.Assert(r.GetRoute(rt), IsNil)
+	s.Nil(r.AddRoute(rt, match))
+	s.Equal(match, r.GetRoute(rt))
+	s.Nil(r.RemoveRoute(rt))
+	s.Nil(r.GetRoute(rt))
 }
 
-func (s *RouteSuite) TestAddTwiceFails(c *C) {
+func (s *RouteSuite) TestAddTwiceFails() {
 	r := New()
 
 	match := "m"
 	rt := `Path("/r1")`
-	c.Assert(r.AddRoute(rt, match), IsNil)
-	c.Assert(r.AddRoute(rt, match), NotNil)
+	s.Nil(r.AddRoute(rt, match))
+	s.NotNil(r.AddRoute(rt, match))
 
 	// Make sure that error did not have side effects
 	out, err := r.Route(makeReq(req{url: "http://google.com/r1"}))
-	c.Assert(err, IsNil)
-	c.Assert(out, Equals, match)
+	s.Nil(err)
+	s.Equal(match, out)
 }
 
-func (s *RouteSuite) TestBadExpression(c *C) {
+func (s *RouteSuite) TestBadExpression() {
 	r := New()
 
 	m := "m"
-	c.Assert(r.AddRoute(`Path("/r1")`, m), IsNil)
-	c.Assert(r.AddRoute(`blabla`, "other"), NotNil)
+	s.Nil(r.AddRoute(`Path("/r1")`, m))
+	s.NotNil(r.AddRoute(`blabla`, "other"))
 
 	// Make sure that error did not have side effects
 	out, err := r.Route(makeReq(req{url: "http://google.com/r1"}))
-	c.Assert(err, IsNil)
-	c.Assert(out, Equals, m)
+	s.Nil(err)
+	s.Equal(m, out)
 }
 
-func (s *RouteSuite) TestUpsert(c *C) {
+func (s *RouteSuite) TestUpsert() {
 	r := New()
 
 	m1, m2 := "m1", "m2"
-	c.Assert(r.UpsertRoute(`Path("/r1")`, m1), IsNil)
-	c.Assert(r.UpsertRoute(`Path("/r1")`, m2), IsNil)
-	c.Assert(r.UpsertRoute(`Path"/r1")`, m2), NotNil)
+	s.Nil(r.UpsertRoute(`Path("/r1")`, m1))
+	s.Nil(r.UpsertRoute(`Path("/r1")`, m2))
+	s.NotNil(r.UpsertRoute(`Path"/r1")`, m2))
 
 	out, err := r.Route(makeReq(req{url: "http://google.com/r1"}))
-	c.Assert(err, IsNil)
-	c.Assert(out, Equals, m2)
+	s.Nil(err)
+	s.Equal(m2, out)
 }
 
-func (s *RouteSuite) TestMatchCases(c *C) {
+func (s *RouteSuite) TestMatchCases() {
 	tc := []struct {
 		name     string
 		routes   []route // routes to add
@@ -85,20 +89,20 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Simple Trie Path Matching",
 			routes: []route{
-				route{`Path("/r1")`, "m1"},
-				route{`Path("/r2")`, "m2"},
+				{expr: `Path("/r1")`, match: "m1"},
+				{expr: `Path("/r2")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
+				{
 					r:     req{url: "http://google.com/r1"},
 					match: "m1",
 				},
-				try{
+				{
 					r:     req{url: "http://google.com/r2"},
 					match: "m2",
 				},
-				try{
+				{
 					r: req{url: "http://google.com/r3"},
 				},
 			},
@@ -106,11 +110,11 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Simple Trie Path Matching",
 			routes: []route{
-				route{`Path("/r1")`, "m1"},
+				{expr: `Path("/r1")`, match: "m1"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
+				{
 					r: req{url: "http://google.com/r3"},
 				},
 			},
@@ -118,20 +122,20 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Regexp path matching",
 			routes: []route{
-				route{`PathRegexp("/r1")`, "m1"},
-				route{`PathRegexp("/r2")`, "m2"},
+				{expr: `PathRegexp("/r1")`, match: "m1"},
+				{expr: `PathRegexp("/r2")`, match: "m2"},
 			},
 			expected: 2, // Note that router does not compress regular expressions
 			tries: []try{
-				try{
+				{
 					r:     req{url: "http://google.com/r1"},
 					match: "m1",
 				},
-				try{
+				{
 					r:     req{url: "http://google.com/r2"},
 					match: "m2",
 				},
-				try{
+				{
 					r: req{url: "http://google.com/r3"},
 				},
 			},
@@ -139,20 +143,20 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Mixed matching with trie and regexp",
 			routes: []route{
-				route{`PathRegexp("/r1")`, "m1"},
-				route{`Path("/r2")`, "m2"},
+				{expr: `PathRegexp("/r1")`, match: "m1"},
+				{expr: `Path("/r2")`, match: "m2"},
 			},
 			expected: 2, // Note that router does not compress regular expressions
 			tries: []try{
-				try{
+				{
 					r:     req{url: "http://google.com/r1"},
 					match: "m1",
 				},
-				try{
+				{
 					r:     req{url: "http://google.com/r2"},
 					match: "m2",
 				},
-				try{
+				{
 					r: req{url: "http://google.com/r3"},
 				},
 			},
@@ -160,12 +164,12 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Make sure longest path matches",
 			routes: []route{
-				route{`Path("/r")`, "m1"},
-				route{`Path("/r/hello")`, "m2"},
+				{expr: `Path("/r")`, match: "m1"},
+				{expr: `Path("/r/hello")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
+				{
 					r:     req{url: "http://google.com/r/hello"},
 					match: "m2",
 				},
@@ -174,43 +178,43 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Match by method and path",
 			routes: []route{
-				route{`Method("POST") && Path("/r1")`, "m1"},
-				route{`Method("GET") && Path("/r1")`, "m2"},
+				{expr: `Method("POST") && Path("/r1")`, match: "m1"},
+				{expr: `Method("GET") && Path("/r1")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
-					r:     req{url: "http://google.com/r1", method: "POST"},
+				{
+					r:     req{url: "http://google.com/r1", method: http.MethodPost},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://google.com/r1", method: "GET"},
+				{
+					r:     req{url: "http://google.com/r1", method: http.MethodGet},
 					match: "m2",
 				},
-				try{
-					r: req{url: "http://google.com/r1", method: "PUT"},
+				{
+					r: req{url: "http://google.com/r1", method: http.MethodPut},
 				},
 			},
 		},
 		{
 			name: "Match by method and path",
 			routes: []route{
-				route{`Method("GET") && Path("/v1")`, "m1"},
-				route{`Method("GET") && Path("/v2")`, "m2"},
-				route{`Method("GET") && Path("/v3")`, "m3"},
+				{expr: `Method("GET") && Path("/v1")`, match: "m1"},
+				{expr: `Method("GET") && Path("/v2")`, match: "m2"},
+				{expr: `Method("GET") && Path("/v3")`, match: "m3"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
-					r:     req{url: "http://google.com/v1", method: "GET"},
+				{
+					r:     req{url: "http://google.com/v1", method: http.MethodGet},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://google.com/v2", method: "GET"},
+				{
+					r:     req{url: "http://google.com/v2", method: http.MethodGet},
 					match: "m2",
 				},
-				try{
-					r:     req{url: "http://google.com/v3", method: "GET"},
+				{
+					r:     req{url: "http://google.com/v3", method: http.MethodGet},
 					match: "m3",
 				},
 			},
@@ -218,62 +222,62 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Match by method, path and hostname, same method and path",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
-				route{`Host("h2") && Method("POST") && Path("/r1")`, "m2"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1")`, match: "m1"},
+				{expr: `Host("h2") && Method("POST") && Path("/r1")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1"},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h2/r1", method: "POST", host: "h2"},
+				{
+					r:     req{url: "http://h2/r1", method: http.MethodPost, host: "h2"},
 					match: "m2",
 				},
-				try{
-					r: req{url: "http://h2/r1", method: "GET", host: "h2"},
+				{
+					r: req{url: "http://h2/r1", method: http.MethodGet, host: "h2"},
 				},
-				try{
-					r: req{url: "http://h2/r1", method: "GET"},
+				{
+					r: req{url: "http://h2/r1", method: http.MethodGet},
 				},
 			},
 		},
 		{
 			name: "Match by method, path and hostname, same method and path",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
-				route{`Host("h2") && Method("GET") && Path("/r1")`, "m2"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1")`, match: "m1"},
+				{expr: `Host("h2") && Method("GET") && Path("/r1")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1"},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h2/r1", method: "GET", host: "h2"},
+				{
+					r:     req{url: "http://h2/r1", method: http.MethodGet, host: "h2"},
 					match: "m2",
 				},
-				try{
-					r: req{url: "http://h2/r1", method: "GET"},
+				{
+					r: req{url: "http://h2/r1", method: http.MethodGet},
 				},
 			},
 		},
 		{
 			name: "Mixed match by method, path and hostname, same method and path",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
-				route{`HostRegexp("h2") && Method("POST") && Path("/r1")`, "m2"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1")`, match: "m1"},
+				{expr: `HostRegexp("h2") && Method("POST") && Path("/r1")`, match: "m2"},
 			},
 			expected: 2,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1"},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h2/r1", method: "POST", host: "h2"},
+				{
+					r:     req{url: "http://h2/r1", method: http.MethodPost, host: "h2"},
 					match: "m2",
 				},
 			},
@@ -281,21 +285,21 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Match by regexp method",
 			routes: []route{
-				route{`MethodRegexp("POST|PUT") && Path("/r1")`, "m1"},
-				route{`MethodRegexp("GET") && Path("/r1")`, "m2"},
+				{expr: `MethodRegexp("POST|PUT") && Path("/r1")`, match: "m1"},
+				{expr: `MethodRegexp("GET") && Path("/r1")`, match: "m2"},
 			},
 			expected: 2,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h1/r1", method: "PUT"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPut},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h2/r1", method: "GET"},
+				{
+					r:     req{url: "http://h2/r1", method: http.MethodGet},
 					match: "m2",
 				},
 			},
@@ -303,17 +307,17 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Match by method, path and hostname and header",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
-				route{`Host("h2") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, "m2"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1")`, match: "m1"},
+				{expr: `Host("h2") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1"},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h2/r1", method: "POST", host: "h2", headers: http.Header{"Content-Type": []string{"application/json"}}},
+				{
+					r:     req{url: "http://h2/r1", method: http.MethodPost, host: "h2", headers: http.Header{"Content-Type": []string{"application/json"}}},
 					match: "m2",
 				},
 			},
@@ -321,21 +325,21 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Match by method, path and hostname and header for same hosts",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
-				route{`Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, "m2"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1")`, match: "m1"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1"},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"application/json"}}},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1", headers: http.Header{"Content-Type": []string{"application/json"}}},
 					match: "m2",
 				},
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"text/plain"}}},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1", headers: http.Header{"Content-Type": []string{"text/plain"}}},
 					match: "m1",
 				},
 			},
@@ -343,17 +347,17 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Catch all match for content-type",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "<string>/<string>")`, "m1"},
-				route{`Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, "m2"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "<string>/<string>")`, match: "m1"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1") && Header("Content-Type", "application/json")`, match: "m2"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"text/plain"}}},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1", headers: http.Header{"Content-Type": []string{"text/plain"}}},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1", headers: http.Header{"Content-Type": []string{"application/json"}}},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1", headers: http.Header{"Content-Type": []string{"application/json"}}},
 					match: "m2",
 				},
 			},
@@ -361,17 +365,17 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Match by method, path and hostname and header regexp",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
-				route{`Host("h2") && Method("POST") && Path("/r1") && HeaderRegexp("Content-Type", "application/.*")`, "m2"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1")`, match: "m1"},
+				{expr: `Host("h2") && Method("POST") && Path("/r1") && HeaderRegexp("Content-Type", "application/.*")`, match: "m2"},
 			},
 			expected: 2,
 			tries: []try{
-				try{
-					r:     req{url: "http://h1/r1", method: "POST", host: "h1"},
+				{
+					r:     req{url: "http://h1/r1", method: http.MethodPost, host: "h1"},
 					match: "m1",
 				},
-				try{
-					r:     req{url: "http://h2/r1", method: "POST", host: "h2", headers: http.Header{"Content-Type": []string{"application/json"}}},
+				{
+					r:     req{url: "http://h2/r1", method: http.MethodPost, host: "h2", headers: http.Header{"Content-Type": []string{"application/json"}}},
 					match: "m2",
 				},
 			},
@@ -379,56 +383,57 @@ func (s *RouteSuite) TestMatchCases(c *C) {
 		{
 			name: "Make sure there is no match overlap",
 			routes: []route{
-				route{`Host("h1") && Method("POST") && Path("/r1")`, "m1"},
+				{expr: `Host("h1") && Method("POST") && Path("/r1")`, match: "m1"},
 			},
 			expected: 1,
 			tries: []try{
-				try{
+				{
 					r: req{url: "http://h/r1", method: "1POST", host: "h"},
 				},
 			},
 		},
 	}
-	for _, t := range tc {
-		comment := Commentf("%v", t.name)
+	for _, test := range tc {
+		comment := fmt.Sprintf("%v", test.name)
+
 		r := New().(*router)
-		for _, rt := range t.routes {
-			c.Assert(r.AddRoute(rt.expr, rt.match), IsNil, comment)
+		for _, rt := range test.routes {
+			s.Nil(r.AddRoute(rt.expr, rt.match), comment)
 		}
-		if t.expected != 0 {
-			c.Assert(len(r.matchers), Equals, t.expected, comment)
+		if test.expected != 0 {
+			s.Len(r.matchers, test.expected, comment)
 		}
 
-		for _, a := range t.tries {
+		for _, a := range test.tries {
 			req := makeReq(a.r)
 
 			out, err := r.Route(req)
-			c.Assert(err, IsNil)
+			s.Nil(err)
 			if a.match != "" {
-				c.Assert(out, Equals, a.match, comment)
+				s.Equal(a.match, out, comment)
 			} else {
-				c.Assert(out, IsNil, comment)
+				s.Nil(out, comment)
 			}
 		}
 	}
 }
 
-func (s *RouteSuite) TestGithubAPI(c *C) {
+func (s *RouteSuite) TestGithubAPI() {
 	r := New()
 
 	re := regexp.MustCompile(":([^/]*)")
 	for _, sp := range githubAPI {
 		path := re.ReplaceAllString(sp.path, "<$1>")
 		expr := fmt.Sprintf(`Method("%s") && Path("%s")`, sp.method, path)
-		c.Assert(r.AddRoute(expr, expr), IsNil)
+		s.Nil(r.AddRoute(expr, expr))
 	}
 
 	for _, sp := range githubAPI {
 		path := re.ReplaceAllString(sp.path, "<$1>")
 		expr := fmt.Sprintf(`Method("%s") && Path("%s")`, sp.method, path)
 		out, err := r.Route(makeReq(req{method: sp.method, url: sp.path}))
-		c.Assert(err, IsNil)
-		c.Assert(out, Equals, expr)
+		s.Nil(err)
+		s.Equal(expr, out)
 	}
 }
 
@@ -449,263 +454,263 @@ type spec struct {
 
 var githubAPI = []spec{
 	// OAuth Authorizations
-	{"GET", "/authorizations"},
-	{"GET", "/authorizations/:id"},
-	{"POST", "/authorizations"},
-	//{"PUT", "/authorizations/clients/:client_id"},
-	//{"PATCH", "/authorizations/:id"},
-	{"DELETE", "/authorizations/:id"},
-	{"GET", "/applications/:client_id/tokens/:access_token"},
-	{"DELETE", "/applications/:client_id/tokens"},
-	{"DELETE", "/applications/:client_id/tokens/:access_token"},
+	{http.MethodGet, "/authorizations"},
+	{http.MethodGet, "/authorizations/:id"},
+	{http.MethodPost, "/authorizations"},
+	// {http.MethodPut, "/authorizations/clients/:client_id"},
+	// {http.MethodPatch, "/authorizations/:id"},
+	{http.MethodDelete, "/authorizations/:id"},
+	{http.MethodGet, "/applications/:client_id/tokens/:access_token"},
+	{http.MethodDelete, "/applications/:client_id/tokens"},
+	{http.MethodDelete, "/applications/:client_id/tokens/:access_token"},
 
 	// Activity
-	{"GET", "/events"},
-	{"GET", "/repos/:owner/:repo/events"},
-	{"GET", "/networks/:owner/:repo/events"},
-	{"GET", "/orgs/:org/events"},
-	{"GET", "/users/:user/received_events"},
-	{"GET", "/users/:user/received_events/public"},
-	{"GET", "/users/:user/events"},
-	{"GET", "/users/:user/events/public"},
-	{"GET", "/users/:user/events/orgs/:org"},
-	{"GET", "/feeds"},
-	{"GET", "/notifications"},
-	{"GET", "/repos/:owner/:repo/notifications"},
-	{"PUT", "/notifications"},
-	{"PUT", "/repos/:owner/:repo/notifications"},
-	{"GET", "/notifications/threads/:id"},
-	//{"PATCH", "/notifications/threads/:id"},
-	{"GET", "/notifications/threads/:id/subscription"},
-	{"PUT", "/notifications/threads/:id/subscription"},
-	{"DELETE", "/notifications/threads/:id/subscription"},
-	{"GET", "/repos/:owner/:repo/stargazers"},
-	{"GET", "/users/:user/starred"},
-	{"GET", "/user/starred"},
-	{"GET", "/user/starred/:owner/:repo"},
-	{"PUT", "/user/starred/:owner/:repo"},
-	{"DELETE", "/user/starred/:owner/:repo"},
-	{"GET", "/repos/:owner/:repo/subscribers"},
-	{"GET", "/users/:user/subscriptions"},
-	{"GET", "/user/subscriptions"},
-	{"GET", "/repos/:owner/:repo/subscription"},
-	{"PUT", "/repos/:owner/:repo/subscription"},
-	{"DELETE", "/repos/:owner/:repo/subscription"},
-	{"GET", "/user/subscriptions/:owner/:repo"},
-	{"PUT", "/user/subscriptions/:owner/:repo"},
-	{"DELETE", "/user/subscriptions/:owner/:repo"},
+	{http.MethodGet, "/events"},
+	{http.MethodGet, "/repos/:owner/:repo/events"},
+	{http.MethodGet, "/networks/:owner/:repo/events"},
+	{http.MethodGet, "/orgs/:org/events"},
+	{http.MethodGet, "/users/:user/received_events"},
+	{http.MethodGet, "/users/:user/received_events/public"},
+	{http.MethodGet, "/users/:user/events"},
+	{http.MethodGet, "/users/:user/events/public"},
+	{http.MethodGet, "/users/:user/events/orgs/:org"},
+	{http.MethodGet, "/feeds"},
+	{http.MethodGet, "/notifications"},
+	{http.MethodGet, "/repos/:owner/:repo/notifications"},
+	{http.MethodPut, "/notifications"},
+	{http.MethodPut, "/repos/:owner/:repo/notifications"},
+	{http.MethodGet, "/notifications/threads/:id"},
+	// {http.MethodPatch, "/notifications/threads/:id"},
+	{http.MethodGet, "/notifications/threads/:id/subscription"},
+	{http.MethodPut, "/notifications/threads/:id/subscription"},
+	{http.MethodDelete, "/notifications/threads/:id/subscription"},
+	{http.MethodGet, "/repos/:owner/:repo/stargazers"},
+	{http.MethodGet, "/users/:user/starred"},
+	{http.MethodGet, "/user/starred"},
+	{http.MethodGet, "/user/starred/:owner/:repo"},
+	{http.MethodPut, "/user/starred/:owner/:repo"},
+	{http.MethodDelete, "/user/starred/:owner/:repo"},
+	{http.MethodGet, "/repos/:owner/:repo/subscribers"},
+	{http.MethodGet, "/users/:user/subscriptions"},
+	{http.MethodGet, "/user/subscriptions"},
+	{http.MethodGet, "/repos/:owner/:repo/subscription"},
+	{http.MethodPut, "/repos/:owner/:repo/subscription"},
+	{http.MethodDelete, "/repos/:owner/:repo/subscription"},
+	{http.MethodGet, "/user/subscriptions/:owner/:repo"},
+	{http.MethodPut, "/user/subscriptions/:owner/:repo"},
+	{http.MethodDelete, "/user/subscriptions/:owner/:repo"},
 
 	// Gists
-	{"GET", "/users/:user/gists"},
-	{"GET", "/gists"},
-	//{"GET", "/gists/public"},
-	//{"GET", "/gists/starred"},
-	{"GET", "/gists/:id"},
-	{"POST", "/gists"},
-	//{"PATCH", "/gists/:id"},
-	{"PUT", "/gists/:id/star"},
-	{"DELETE", "/gists/:id/star"},
-	{"GET", "/gists/:id/star"},
-	{"POST", "/gists/:id/forks"},
-	{"DELETE", "/gists/:id"},
+	{http.MethodGet, "/users/:user/gists"},
+	{http.MethodGet, "/gists"},
+	// {http.MethodGet, "/gists/public"},
+	// {http.MethodGet, "/gists/starred"},
+	{http.MethodGet, "/gists/:id"},
+	{http.MethodPost, "/gists"},
+	// {http.MethodPatch, "/gists/:id"},
+	{http.MethodPut, "/gists/:id/star"},
+	{http.MethodDelete, "/gists/:id/star"},
+	{http.MethodGet, "/gists/:id/star"},
+	{http.MethodPost, "/gists/:id/forks"},
+	{http.MethodDelete, "/gists/:id"},
 
 	// Git Data
-	{"GET", "/repos/:owner/:repo/git/blobs/:sha"},
-	{"POST", "/repos/:owner/:repo/git/blobs"},
-	{"GET", "/repos/:owner/:repo/git/commits/:sha"},
-	{"POST", "/repos/:owner/:repo/git/commits"},
-	//{"GET", "/repos/:owner/:repo/git/refs/*ref"},
-	{"GET", "/repos/:owner/:repo/git/refs"},
-	{"POST", "/repos/:owner/:repo/git/refs"},
-	//{"PATCH", "/repos/:owner/:repo/git/refs/*ref"},
-	//{"DELETE", "/repos/:owner/:repo/git/refs/*ref"},
-	{"GET", "/repos/:owner/:repo/git/tags/:sha"},
-	{"POST", "/repos/:owner/:repo/git/tags"},
-	{"GET", "/repos/:owner/:repo/git/trees/:sha"},
-	{"POST", "/repos/:owner/:repo/git/trees"},
+	{http.MethodGet, "/repos/:owner/:repo/git/blobs/:sha"},
+	{http.MethodPost, "/repos/:owner/:repo/git/blobs"},
+	{http.MethodGet, "/repos/:owner/:repo/git/commits/:sha"},
+	{http.MethodPost, "/repos/:owner/:repo/git/commits"},
+	// {http.MethodGet, "/repos/:owner/:repo/git/refs/*ref"},
+	{http.MethodGet, "/repos/:owner/:repo/git/refs"},
+	{http.MethodPost, "/repos/:owner/:repo/git/refs"},
+	// {http.MethodPatch, "/repos/:owner/:repo/git/refs/*ref"},
+	// {http.MethodDelete, "/repos/:owner/:repo/git/refs/*ref"},
+	{http.MethodGet, "/repos/:owner/:repo/git/tags/:sha"},
+	{http.MethodPost, "/repos/:owner/:repo/git/tags"},
+	{http.MethodGet, "/repos/:owner/:repo/git/trees/:sha"},
+	{http.MethodPost, "/repos/:owner/:repo/git/trees"},
 
 	// Issues
-	{"GET", "/issues"},
-	{"GET", "/user/issues"},
-	{"GET", "/orgs/:org/issues"},
-	{"GET", "/repos/:owner/:repo/issues"},
-	{"GET", "/repos/:owner/:repo/issues/:number"},
-	{"POST", "/repos/:owner/:repo/issues"},
-	//{"PATCH", "/repos/:owner/:repo/issues/:number"},
-	{"GET", "/repos/:owner/:repo/assignees"},
-	{"GET", "/repos/:owner/:repo/assignees/:assignee"},
-	{"GET", "/repos/:owner/:repo/issues/:number/comments"},
-	//{"GET", "/repos/:owner/:repo/issues/comments"},
-	//{"GET", "/repos/:owner/:repo/issues/comments/:id"},
-	{"POST", "/repos/:owner/:repo/issues/:number/comments"},
-	//{"PATCH", "/repos/:owner/:repo/issues/comments/:id"},
-	//{"DELETE", "/repos/:owner/:repo/issues/comments/:id"},
-	{"GET", "/repos/:owner/:repo/issues/:number/events"},
-	//{"GET", "/repos/:owner/:repo/issues/events"},
-	//{"GET", "/repos/:owner/:repo/issues/events/:id"},
-	{"GET", "/repos/:owner/:repo/labels"},
-	{"GET", "/repos/:owner/:repo/labels/:name"},
-	{"POST", "/repos/:owner/:repo/labels"},
-	//{"PATCH", "/repos/:owner/:repo/labels/:name"},
-	{"DELETE", "/repos/:owner/:repo/labels/:name"},
-	{"GET", "/repos/:owner/:repo/issues/:number/labels"},
-	{"POST", "/repos/:owner/:repo/issues/:number/labels"},
-	{"DELETE", "/repos/:owner/:repo/issues/:number/labels/:name"},
-	{"PUT", "/repos/:owner/:repo/issues/:number/labels"},
-	{"DELETE", "/repos/:owner/:repo/issues/:number/labels"},
-	{"GET", "/repos/:owner/:repo/milestones/:number/labels"},
-	{"GET", "/repos/:owner/:repo/milestones"},
-	{"GET", "/repos/:owner/:repo/milestones/:number"},
-	{"POST", "/repos/:owner/:repo/milestones"},
-	//{"PATCH", "/repos/:owner/:repo/milestones/:number"},
-	{"DELETE", "/repos/:owner/:repo/milestones/:number"},
+	{http.MethodGet, "/issues"},
+	{http.MethodGet, "/user/issues"},
+	{http.MethodGet, "/orgs/:org/issues"},
+	{http.MethodGet, "/repos/:owner/:repo/issues"},
+	{http.MethodGet, "/repos/:owner/:repo/issues/:number"},
+	{http.MethodPost, "/repos/:owner/:repo/issues"},
+	// {http.MethodPatch, "/repos/:owner/:repo/issues/:number"},
+	{http.MethodGet, "/repos/:owner/:repo/assignees"},
+	{http.MethodGet, "/repos/:owner/:repo/assignees/:assignee"},
+	{http.MethodGet, "/repos/:owner/:repo/issues/:number/comments"},
+	// {http.MethodGet, "/repos/:owner/:repo/issues/comments"},
+	// {http.MethodGet, "/repos/:owner/:repo/issues/comments/:id"},
+	{http.MethodPost, "/repos/:owner/:repo/issues/:number/comments"},
+	// {http.MethodPatch, "/repos/:owner/:repo/issues/comments/:id"},
+	// {http.MethodDelete, "/repos/:owner/:repo/issues/comments/:id"},
+	{http.MethodGet, "/repos/:owner/:repo/issues/:number/events"},
+	// {http.MethodGet, "/repos/:owner/:repo/issues/events"},
+	// {http.MethodGet, "/repos/:owner/:repo/issues/events/:id"},
+	{http.MethodGet, "/repos/:owner/:repo/labels"},
+	{http.MethodGet, "/repos/:owner/:repo/labels/:name"},
+	{http.MethodPost, "/repos/:owner/:repo/labels"},
+	// {http.MethodPatch, "/repos/:owner/:repo/labels/:name"},
+	{http.MethodDelete, "/repos/:owner/:repo/labels/:name"},
+	{http.MethodGet, "/repos/:owner/:repo/issues/:number/labels"},
+	{http.MethodPost, "/repos/:owner/:repo/issues/:number/labels"},
+	{http.MethodDelete, "/repos/:owner/:repo/issues/:number/labels/:name"},
+	{http.MethodPut, "/repos/:owner/:repo/issues/:number/labels"},
+	{http.MethodDelete, "/repos/:owner/:repo/issues/:number/labels"},
+	{http.MethodGet, "/repos/:owner/:repo/milestones/:number/labels"},
+	{http.MethodGet, "/repos/:owner/:repo/milestones"},
+	{http.MethodGet, "/repos/:owner/:repo/milestones/:number"},
+	{http.MethodPost, "/repos/:owner/:repo/milestones"},
+	// {http.MethodPatch, "/repos/:owner/:repo/milestones/:number"},
+	{http.MethodDelete, "/repos/:owner/:repo/milestones/:number"},
 
 	// Miscellaneous
-	{"GET", "/emojis"},
-	{"GET", "/gitignore/templates"},
-	{"GET", "/gitignore/templates/:name"},
-	{"POST", "/markdown"},
-	{"POST", "/markdown/raw"},
-	{"GET", "/meta"},
-	{"GET", "/rate_limit"},
+	{http.MethodGet, "/emojis"},
+	{http.MethodGet, "/gitignore/templates"},
+	{http.MethodGet, "/gitignore/templates/:name"},
+	{http.MethodPost, "/markdown"},
+	{http.MethodPost, "/markdown/raw"},
+	{http.MethodGet, "/meta"},
+	{http.MethodGet, "/rate_limit"},
 
 	// Organizations
-	{"GET", "/users/:user/orgs"},
-	{"GET", "/user/orgs"},
-	{"GET", "/orgs/:org"},
-	//{"PATCH", "/orgs/:org"},
-	{"GET", "/orgs/:org/members"},
-	{"GET", "/orgs/:org/members/:user"},
-	{"DELETE", "/orgs/:org/members/:user"},
-	{"GET", "/orgs/:org/public_members"},
-	{"GET", "/orgs/:org/public_members/:user"},
-	{"PUT", "/orgs/:org/public_members/:user"},
-	{"DELETE", "/orgs/:org/public_members/:user"},
-	{"GET", "/orgs/:org/teams"},
-	{"GET", "/teams/:id"},
-	{"POST", "/orgs/:org/teams"},
-	//{"PATCH", "/teams/:id"},
-	{"DELETE", "/teams/:id"},
-	{"GET", "/teams/:id/members"},
-	{"GET", "/teams/:id/members/:user"},
-	{"PUT", "/teams/:id/members/:user"},
-	{"DELETE", "/teams/:id/members/:user"},
-	{"GET", "/teams/:id/repos"},
-	{"GET", "/teams/:id/repos/:owner/:repo"},
-	{"PUT", "/teams/:id/repos/:owner/:repo"},
-	{"DELETE", "/teams/:id/repos/:owner/:repo"},
-	{"GET", "/user/teams"},
+	{http.MethodGet, "/users/:user/orgs"},
+	{http.MethodGet, "/user/orgs"},
+	{http.MethodGet, "/orgs/:org"},
+	// {http.MethodPatch, "/orgs/:org"},
+	{http.MethodGet, "/orgs/:org/members"},
+	{http.MethodGet, "/orgs/:org/members/:user"},
+	{http.MethodDelete, "/orgs/:org/members/:user"},
+	{http.MethodGet, "/orgs/:org/public_members"},
+	{http.MethodGet, "/orgs/:org/public_members/:user"},
+	{http.MethodPut, "/orgs/:org/public_members/:user"},
+	{http.MethodDelete, "/orgs/:org/public_members/:user"},
+	{http.MethodGet, "/orgs/:org/teams"},
+	{http.MethodGet, "/teams/:id"},
+	{http.MethodPost, "/orgs/:org/teams"},
+	// {http.MethodPatch, "/teams/:id"},
+	{http.MethodDelete, "/teams/:id"},
+	{http.MethodGet, "/teams/:id/members"},
+	{http.MethodGet, "/teams/:id/members/:user"},
+	{http.MethodPut, "/teams/:id/members/:user"},
+	{http.MethodDelete, "/teams/:id/members/:user"},
+	{http.MethodGet, "/teams/:id/repos"},
+	{http.MethodGet, "/teams/:id/repos/:owner/:repo"},
+	{http.MethodPut, "/teams/:id/repos/:owner/:repo"},
+	{http.MethodDelete, "/teams/:id/repos/:owner/:repo"},
+	{http.MethodGet, "/user/teams"},
 
 	// Pull Requests
-	{"GET", "/repos/:owner/:repo/pulls"},
-	{"GET", "/repos/:owner/:repo/pulls/:number"},
-	{"POST", "/repos/:owner/:repo/pulls"},
-	//{"PATCH", "/repos/:owner/:repo/pulls/:number"},
-	{"GET", "/repos/:owner/:repo/pulls/:number/commits"},
-	{"GET", "/repos/:owner/:repo/pulls/:number/files"},
-	{"GET", "/repos/:owner/:repo/pulls/:number/merge"},
-	{"PUT", "/repos/:owner/:repo/pulls/:number/merge"},
-	{"GET", "/repos/:owner/:repo/pulls/:number/comments"},
-	//{"GET", "/repos/:owner/:repo/pulls/comments"},
-	//{"GET", "/repos/:owner/:repo/pulls/comments/:number"},
-	{"PUT", "/repos/:owner/:repo/pulls/:number/comments"},
-	//{"PATCH", "/repos/:owner/:repo/pulls/comments/:number"},
-	//{"DELETE", "/repos/:owner/:repo/pulls/comments/:number"},
+	{http.MethodGet, "/repos/:owner/:repo/pulls"},
+	{http.MethodGet, "/repos/:owner/:repo/pulls/:number"},
+	{http.MethodPost, "/repos/:owner/:repo/pulls"},
+	// {http.MethodPatch, "/repos/:owner/:repo/pulls/:number"},
+	{http.MethodGet, "/repos/:owner/:repo/pulls/:number/commits"},
+	{http.MethodGet, "/repos/:owner/:repo/pulls/:number/files"},
+	{http.MethodGet, "/repos/:owner/:repo/pulls/:number/merge"},
+	{http.MethodPut, "/repos/:owner/:repo/pulls/:number/merge"},
+	{http.MethodGet, "/repos/:owner/:repo/pulls/:number/comments"},
+	// {http.MethodGet, "/repos/:owner/:repo/pulls/comments"},
+	// {http.MethodGet, "/repos/:owner/:repo/pulls/comments/:number"},
+	{http.MethodPut, "/repos/:owner/:repo/pulls/:number/comments"},
+	// {http.MethodPatch, "/repos/:owner/:repo/pulls/comments/:number"},
+	// {http.MethodDelete, "/repos/:owner/:repo/pulls/comments/:number"},
 
 	// Repositories
-	{"GET", "/user/repos"},
-	{"GET", "/users/:user/repos"},
-	{"GET", "/orgs/:org/repos"},
-	{"GET", "/repositories"},
-	{"POST", "/user/repos"},
-	{"POST", "/orgs/:org/repos"},
-	{"GET", "/repos/:owner/:repo"},
-	//{"PATCH", "/repos/:owner/:repo"},
-	{"GET", "/repos/:owner/:repo/contributors"},
-	{"GET", "/repos/:owner/:repo/languages"},
-	{"GET", "/repos/:owner/:repo/teams"},
-	{"GET", "/repos/:owner/:repo/tags"},
-	{"GET", "/repos/:owner/:repo/branches"},
-	{"GET", "/repos/:owner/:repo/branches/:branch"},
-	{"DELETE", "/repos/:owner/:repo"},
-	{"GET", "/repos/:owner/:repo/collaborators"},
-	{"GET", "/repos/:owner/:repo/collaborators/:user"},
-	{"PUT", "/repos/:owner/:repo/collaborators/:user"},
-	{"DELETE", "/repos/:owner/:repo/collaborators/:user"},
-	{"GET", "/repos/:owner/:repo/comments"},
-	{"GET", "/repos/:owner/:repo/commits/:sha/comments"},
-	{"POST", "/repos/:owner/:repo/commits/:sha/comments"},
-	{"GET", "/repos/:owner/:repo/comments/:id"},
-	//{"PATCH", "/repos/:owner/:repo/comments/:id"},
-	{"DELETE", "/repos/:owner/:repo/comments/:id"},
-	{"GET", "/repos/:owner/:repo/commits"},
-	{"GET", "/repos/:owner/:repo/commits/:sha"},
-	{"GET", "/repos/:owner/:repo/readme"},
-	//{"GET", "/repos/:owner/:repo/contents/*path"},
-	//{"PUT", "/repos/:owner/:repo/contents/*path"},
-	//{"DELETE", "/repos/:owner/:repo/contents/*path"},
-	//{"GET", "/repos/:owner/:repo/:archive_format/:ref"},
-	{"GET", "/repos/:owner/:repo/keys"},
-	{"GET", "/repos/:owner/:repo/keys/:id"},
-	{"POST", "/repos/:owner/:repo/keys"},
-	//{"PATCH", "/repos/:owner/:repo/keys/:id"},
-	{"DELETE", "/repos/:owner/:repo/keys/:id"},
-	{"GET", "/repos/:owner/:repo/downloads"},
-	{"GET", "/repos/:owner/:repo/downloads/:id"},
-	{"DELETE", "/repos/:owner/:repo/downloads/:id"},
-	{"GET", "/repos/:owner/:repo/forks"},
-	{"POST", "/repos/:owner/:repo/forks"},
-	{"GET", "/repos/:owner/:repo/hooks"},
-	{"GET", "/repos/:owner/:repo/hooks/:id"},
-	{"POST", "/repos/:owner/:repo/hooks"},
-	//{"PATCH", "/repos/:owner/:repo/hooks/:id"},
-	{"POST", "/repos/:owner/:repo/hooks/:id/tests"},
-	{"DELETE", "/repos/:owner/:repo/hooks/:id"},
-	{"POST", "/repos/:owner/:repo/merges"},
-	{"GET", "/repos/:owner/:repo/releases"},
-	{"GET", "/repos/:owner/:repo/releases/:id"},
-	{"POST", "/repos/:owner/:repo/releases"},
-	//{"PATCH", "/repos/:owner/:repo/releases/:id"},
-	{"DELETE", "/repos/:owner/:repo/releases/:id"},
-	{"GET", "/repos/:owner/:repo/releases/:id/assets"},
-	{"GET", "/repos/:owner/:repo/stats/contributors"},
-	{"GET", "/repos/:owner/:repo/stats/commit_activity"},
-	{"GET", "/repos/:owner/:repo/stats/code_frequency"},
-	{"GET", "/repos/:owner/:repo/stats/participation"},
-	{"GET", "/repos/:owner/:repo/stats/punch_card"},
-	{"GET", "/repos/:owner/:repo/statuses/:ref"},
-	{"POST", "/repos/:owner/:repo/statuses/:ref"},
+	{http.MethodGet, "/user/repos"},
+	{http.MethodGet, "/users/:user/repos"},
+	{http.MethodGet, "/orgs/:org/repos"},
+	{http.MethodGet, "/repositories"},
+	{http.MethodPost, "/user/repos"},
+	{http.MethodPost, "/orgs/:org/repos"},
+	{http.MethodGet, "/repos/:owner/:repo"},
+	// {http.MethodPatch, "/repos/:owner/:repo"},
+	{http.MethodGet, "/repos/:owner/:repo/contributors"},
+	{http.MethodGet, "/repos/:owner/:repo/languages"},
+	{http.MethodGet, "/repos/:owner/:repo/teams"},
+	{http.MethodGet, "/repos/:owner/:repo/tags"},
+	{http.MethodGet, "/repos/:owner/:repo/branches"},
+	{http.MethodGet, "/repos/:owner/:repo/branches/:branch"},
+	{http.MethodDelete, "/repos/:owner/:repo"},
+	{http.MethodGet, "/repos/:owner/:repo/collaborators"},
+	{http.MethodGet, "/repos/:owner/:repo/collaborators/:user"},
+	{http.MethodPut, "/repos/:owner/:repo/collaborators/:user"},
+	{http.MethodDelete, "/repos/:owner/:repo/collaborators/:user"},
+	{http.MethodGet, "/repos/:owner/:repo/comments"},
+	{http.MethodGet, "/repos/:owner/:repo/commits/:sha/comments"},
+	{http.MethodPost, "/repos/:owner/:repo/commits/:sha/comments"},
+	{http.MethodGet, "/repos/:owner/:repo/comments/:id"},
+	// {http.MethodPatch, "/repos/:owner/:repo/comments/:id"},
+	{http.MethodDelete, "/repos/:owner/:repo/comments/:id"},
+	{http.MethodGet, "/repos/:owner/:repo/commits"},
+	{http.MethodGet, "/repos/:owner/:repo/commits/:sha"},
+	{http.MethodGet, "/repos/:owner/:repo/readme"},
+	// {http.MethodGet, "/repos/:owner/:repo/contents/*path"},
+	// {http.MethodPut, "/repos/:owner/:repo/contents/*path"},
+	// {http.MethodDelete, "/repos/:owner/:repo/contents/*path"},
+	// {http.MethodGet, "/repos/:owner/:repo/:archive_format/:ref"},
+	{http.MethodGet, "/repos/:owner/:repo/keys"},
+	{http.MethodGet, "/repos/:owner/:repo/keys/:id"},
+	{http.MethodPost, "/repos/:owner/:repo/keys"},
+	// {http.MethodPatch, "/repos/:owner/:repo/keys/:id"},
+	{http.MethodDelete, "/repos/:owner/:repo/keys/:id"},
+	{http.MethodGet, "/repos/:owner/:repo/downloads"},
+	{http.MethodGet, "/repos/:owner/:repo/downloads/:id"},
+	{http.MethodDelete, "/repos/:owner/:repo/downloads/:id"},
+	{http.MethodGet, "/repos/:owner/:repo/forks"},
+	{http.MethodPost, "/repos/:owner/:repo/forks"},
+	{http.MethodGet, "/repos/:owner/:repo/hooks"},
+	{http.MethodGet, "/repos/:owner/:repo/hooks/:id"},
+	{http.MethodPost, "/repos/:owner/:repo/hooks"},
+	// {http.MethodPatch, "/repos/:owner/:repo/hooks/:id"},
+	{http.MethodPost, "/repos/:owner/:repo/hooks/:id/tests"},
+	{http.MethodDelete, "/repos/:owner/:repo/hooks/:id"},
+	{http.MethodPost, "/repos/:owner/:repo/merges"},
+	{http.MethodGet, "/repos/:owner/:repo/releases"},
+	{http.MethodGet, "/repos/:owner/:repo/releases/:id"},
+	{http.MethodPost, "/repos/:owner/:repo/releases"},
+	// {http.MethodPatch, "/repos/:owner/:repo/releases/:id"},
+	{http.MethodDelete, "/repos/:owner/:repo/releases/:id"},
+	{http.MethodGet, "/repos/:owner/:repo/releases/:id/assets"},
+	{http.MethodGet, "/repos/:owner/:repo/stats/contributors"},
+	{http.MethodGet, "/repos/:owner/:repo/stats/commit_activity"},
+	{http.MethodGet, "/repos/:owner/:repo/stats/code_frequency"},
+	{http.MethodGet, "/repos/:owner/:repo/stats/participation"},
+	{http.MethodGet, "/repos/:owner/:repo/stats/punch_card"},
+	{http.MethodGet, "/repos/:owner/:repo/statuses/:ref"},
+	{http.MethodPost, "/repos/:owner/:repo/statuses/:ref"},
 
 	// Search
-	{"GET", "/search/repositories"},
-	{"GET", "/search/code"},
-	{"GET", "/search/issues"},
-	{"GET", "/search/users"},
-	{"GET", "/legacy/issues/search/:owner/:repository/:state/:keyword"},
-	{"GET", "/legacy/repos/search/:keyword"},
-	{"GET", "/legacy/user/search/:keyword"},
-	{"GET", "/legacy/user/email/:email"},
+	{http.MethodGet, "/search/repositories"},
+	{http.MethodGet, "/search/code"},
+	{http.MethodGet, "/search/issues"},
+	{http.MethodGet, "/search/users"},
+	{http.MethodGet, "/legacy/issues/search/:owner/:repository/:state/:keyword"},
+	{http.MethodGet, "/legacy/repos/search/:keyword"},
+	{http.MethodGet, "/legacy/user/search/:keyword"},
+	{http.MethodGet, "/legacy/user/email/:email"},
 
 	// Users
-	{"GET", "/users/:user"},
-	{"GET", "/user"},
-	//{"PATCH", "/user"},
-	{"GET", "/users"},
-	{"GET", "/user/emails"},
-	{"POST", "/user/emails"},
-	{"DELETE", "/user/emails"},
-	{"GET", "/users/:user/followers"},
-	{"GET", "/user/followers"},
-	{"GET", "/users/:user/following"},
-	{"GET", "/user/following"},
-	{"GET", "/user/following/:user"},
-	{"GET", "/users/:user/following/:target_user"},
-	{"PUT", "/user/following/:user"},
-	{"DELETE", "/user/following/:user"},
-	{"GET", "/users/:user/keys"},
-	{"GET", "/user/keys"},
-	{"GET", "/user/keys/:id"},
-	{"POST", "/user/keys"},
-	//{"PATCH", "/user/keys/:id"},
-	{"DELETE", "/user/keys/:id"},
+	{http.MethodGet, "/users/:user"},
+	{http.MethodGet, "/user"},
+	// {http.MethodPatch, "/user"},
+	{http.MethodGet, "/users"},
+	{http.MethodGet, "/user/emails"},
+	{http.MethodPost, "/user/emails"},
+	{http.MethodDelete, "/user/emails"},
+	{http.MethodGet, "/users/:user/followers"},
+	{http.MethodGet, "/user/followers"},
+	{http.MethodGet, "/users/:user/following"},
+	{http.MethodGet, "/user/following"},
+	{http.MethodGet, "/user/following/:user"},
+	{http.MethodGet, "/users/:user/following/:target_user"},
+	{http.MethodPut, "/user/following/:user"},
+	{http.MethodDelete, "/user/following/:user"},
+	{http.MethodGet, "/users/:user/keys"},
+	{http.MethodGet, "/user/keys"},
+	{http.MethodGet, "/user/keys/:id"},
+	{http.MethodPost, "/user/keys"},
+	// {http.MethodPatch, "/user/keys/:id"},
+	{http.MethodDelete, "/user/keys/:id"},
 }

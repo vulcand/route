@@ -17,145 +17,127 @@ func TestParseAndMatchSuccess(t *testing.T) {
 	}{
 		// Trie cases
 		{
-			`Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"GET",
-			"localhost",
-			nil,
+			Expression: `Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodGet,
+			Host:       "localhost",
 		},
 		{
-			`Method("GET") && Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"GET",
-			"localhost",
-			nil,
+			Expression: `Method("GET") && Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodGet,
+			Host:       "localhost",
 		},
 		{
-			`Path("/hello/<world>")`,
-			`http://google.com/hello/world`,
-			"GET",
-			"localhost",
-			nil,
+			Expression: `Path("/hello/<world>")`,
+			Url:        `http://google.com/hello/world`,
+			Method:     http.MethodGet,
+			Host:       "localhost",
 		},
 		{
-			`Method("POST") &&  Path("/helloworld%2F")`,
-			`http://google.com/helloworld%2F`,
-			"POST",
-			"localhost",
-			nil,
+			Expression: `Method("POST") &&  Path("/helloworld%2F")`,
+			Url:        `http://google.com/helloworld%2F`,
+			Method:     http.MethodPost,
+			Host:       "localhost",
 		},
 		{
-			`Method("POST") && Path("/helloworld%2F")`,
-			`http://google.com/helloworld%2F?q=b`,
-			"POST",
-			"localhost",
-			nil,
+			Expression: `Method("POST") && Path("/helloworld%2F")`,
+			Url:        `http://google.com/helloworld%2F?q=b`,
+			Method:     http.MethodPost,
+			Host:       "localhost",
 		},
 		{
-			`Method("POST") && Path("/helloworld/<name>")`,
-			`http://google.com/helloworld/%2F`,
-			"POST",
-			"localhost",
-			nil,
+			Expression: `Method("POST") && Path("/helloworld/<name>")`,
+			Url:        `http://google.com/helloworld/%2F`,
+			Method:     http.MethodPost,
+			Host:       "localhost",
 		},
 		{
-			`Method("POST") && Path("/helloworld/<path:name>")`,
-			`http://google.com/helloworld/some/name`,
-			"POST",
-			"localhost",
-			nil,
+			Expression: `Method("POST") && Path("/helloworld/<path:name>")`,
+			Url:        `http://google.com/helloworld/some/name`,
+			Method:     http.MethodPost,
+			Host:       "localhost",
 		},
 		{
-			`Method("POST") && Path("/escaped/<path:name>")`,
-			`http://google.com/escaped/some%2Fpath`,
-			"POST",
-			"localhost",
-			nil,
+			Expression: `Method("POST") && Path("/escaped/<path:name>")`,
+			Url:        `http://google.com/escaped/some%2Fpath`,
+			Method:     http.MethodPost,
+			Host:       "localhost",
 		},
 		{
-			`Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"GET",
-			"localhost",
-			nil,
+			Expression: `Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodGet,
+			Host:       "localhost",
 		},
 		{
-			`Method("POST") && Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"localhost",
-			nil,
+			Expression: `Method("POST") && Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "localhost",
 		},
 		{
-			`Host("localhost") && Method("POST") && Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"localhost",
-			nil,
+			Expression: `Host("localhost") && Method("POST") && Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "localhost",
 		},
 		{
-			`Host("<subdomain>.localhost") && Method("POST") && Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"a.localhost",
-			nil,
+			Expression: `Host("<subdomain>.localhost") && Method("POST") && Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "a.localhost",
 		},
 		{
-			`Host("<sub1>.<sub2>.localhost") && Method("POST") && Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"a.b.localhost",
-			nil,
+			Expression: `Host("<sub1>.<sub2>.localhost") && Method("POST") && Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "a.b.localhost",
 		},
 		{
-			`Host("<sub1>.<sub2>.localhost") && Method("POST") && Path("/helloworld")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"a.b.localhost",
-			nil,
+			Expression: `Host("<sub1>.<sub2>.localhost") && Method("POST") && Path("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "a.b.localhost",
 		},
 		{
-			`Header("Content-Type", "application/json")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"",
-			map[string][]string{"Content-Type": []string{"application/json"}},
+			Expression: `Header("Content-Type", "application/json")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Headers:    map[string][]string{"Content-Type": {"application/json"}},
 		},
 		{
-			`Header("Content-Type", "application/<string>")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"",
-			map[string][]string{"Content-Type": []string{"application/json"}},
+			Expression: `Header("Content-Type", "application/<string>")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Headers:    map[string][]string{"Content-Type": {"application/json"}},
 		},
 		{
-			`Host("<sub1>.<sub2>.localhost") && Method("POST") && Path("/helloworld") && Header("Content-Type", "application/<string>")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"a.b.localhost",
-			map[string][]string{"Content-Type": []string{"application/json"}},
+			Expression: `Host("<sub1>.<sub2>.localhost") && Method("POST") && Path("/helloworld") && Header("Content-Type", "application/<string>")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "a.b.localhost",
+			Headers:    map[string][]string{"Content-Type": {"application/json"}},
 		},
 		// Regexp cases
 		{
-			`PathRegexp("/helloworld")`,
-			`http://google.com/helloworld`,
-			"GET",
-			"localhost",
-			nil,
+			Expression: `PathRegexp("/helloworld")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodGet,
+			Host:       "localhost",
 		},
 		{
-			`HostRegexp("[^\\.]+\\.localhost") && Method("POST") && PathRegexp("/hello.*")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"a.localhost",
-			nil,
+			Expression: `HostRegexp("[^\\.]+\\.localhost") && Method("POST") && PathRegexp("/hello.*")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "a.localhost",
 		},
 		{
-			`HostRegexp("[^\\.]+\\.localhost") && Method("POST") && PathRegexp("/hello.*") && HeaderRegexp("Content-Type", "application/.+")`,
-			`http://google.com/helloworld`,
-			"POST",
-			"a.b.localhost",
-			map[string][]string{"Content-Type": []string{"application/json"}},
+			Expression: `HostRegexp("[^\\.]+\\.localhost") && Method("POST") && PathRegexp("/hello.*") && HeaderRegexp("Content-Type", "application/.+")`,
+			Url:        `http://google.com/helloworld`,
+			Method:     http.MethodPost,
+			Host:       "a.b.localhost",
+			Headers:    map[string][]string{"Content-Type": {"application/json"}},
 		},
 	}
 	for _, tc := range testCases {
@@ -178,25 +160,72 @@ func TestParseAndMatchSuccess(t *testing.T) {
 }
 
 func TestParseFailures(t *testing.T) {
-	testCases := []string{
-		`bad`,                             // unsupported identifier
-		`bad expression`,                  // not a valid go expression
-		`Path("/path") || Path("/path2")`, // unsupported operator
-		`1 && 2`,                          // unsupported statements
-		`"standalone literal"`,            // standalone literal
-		`UnknownFunction("hi")`,           // unknown function
-		`Path(1)`,                         // bad argument type
-		`RegexpRoute(1)`,                  // bad argument type
-		`Path()`,                          // no arguments
-		`PathRegexp()`,                    // no arguments
-		`Path(Path("hello"))`,             // nested calls
-		`Path("")`,                        // bad trie expression
-		`PathRegexp("[[[[")`,              // bad regular expression
+	testCases := []struct {
+		desc string
+		expr string
+	}{
+		{
+			desc: "unsupported identifier",
+			expr: `bad`,
+		},
+		{
+			desc: "not a valid go expression",
+			expr: `bad expression`,
+		},
+		{
+			desc: "unsupported operator",
+			expr: `Path("/path") || Path("/path2")`,
+		},
+		{
+			desc: "unsupported statements",
+			expr: `1 && 2`,
+		},
+		{
+			desc: "standalone literal",
+			expr: `"standalone literal"`,
+		},
+		{
+			desc: "unknown function",
+			expr: `UnknownFunction("hi")`,
+		},
+		{
+			desc: "bad argument type",
+			expr: `Path(1)`,
+		},
+		{
+			desc: "bad argument type",
+			expr: `RegexpRoute(1)`,
+		},
+		{
+			desc: "no arguments",
+			expr: `Path()`,
+		},
+		{
+			desc: "no arguments",
+			expr: `PathRegexp()`,
+		},
+		{
+			desc: "nested calls",
+			expr: `Path(Path("hello"))`,
+		},
+		{
+			desc: "bad trie expression",
+			expr: `Path("")`,
+		},
+		{
+			desc: "bad regular expression",
+			expr: `PathRegexp("[[[[")`,
+		},
 	}
 
-	for _, expr := range testCases {
-		m, err := parse(expr, &match{val: "ok"})
-		assert.Error(t, err)
-		assert.Nil(t, m)
+	for _, test := range testCases {
+		test := test
+		t.Run(test.desc, func(t *testing.T) {
+			t.Parallel()
+
+			m, err := parse(test.expr, &match{val: "ok"})
+			assert.Error(t, err)
+			assert.Nil(t, m)
+		})
 	}
 }

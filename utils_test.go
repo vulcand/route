@@ -1,28 +1,26 @@
 package route
 
 import (
-	. "gopkg.in/check.v1"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type UtilsSuite struct{}
-
-var _ = Suite(&UtilsSuite{})
-
 // Make sure parseUrl is strict enough not to accept total garbage
-func (s *UtilsSuite) TestRawPath(c *C) {
-	vals := []struct {
+func Test_rawPath(t *testing.T) {
+	values := []struct {
 		URL      string
 		Expected string
 	}{
-		{"http://google.com/", "/"},
-		{"http://google.com/a?q=b", "/a"},
-		{"http://google.com/%2Fvalue/hello", "/%2Fvalue/hello"},
-		{"/home", "/home"},
-		{"/home?a=b", "/home"},
-		{"/home%2F", "/home%2F"},
+		{URL: "http://google.com/", Expected: "/"},
+		{URL: "http://google.com/a?q=b", Expected: "/a"},
+		{URL: "http://google.com/%2Fvalue/hello", Expected: "/%2Fvalue/hello"},
+		{URL: "/home", Expected: "/home"},
+		{URL: "/home?a=b", Expected: "/home"},
+		{URL: "/home%2F", Expected: "/home%2F"},
 	}
-	for _, v := range vals {
+	for _, v := range values {
 		out := rawPath(makeReq(req{url: v.URL}))
-		c.Assert(out, Equals, v.Expected)
+		assert.Equal(t, v.Expected, out)
 	}
 }

@@ -3,41 +3,45 @@ package route
 import (
 	"fmt"
 	"strings"
+	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/suite"
 )
 
 type IterSuite struct {
+	suite.Suite
 }
 
-var _ = Suite(&IterSuite{})
+func TestIterSuite(t *testing.T) {
+	suite.Run(t, new(IterSuite))
+}
 
-func (s *IterSuite) TestEmptyOperationsSucceed(c *C) {
-	var vals []string
+func (s *IterSuite) TestEmptyOperationsSucceed() {
+	var values []string
 	var seps []byte
-	i := newIter(vals, seps)
+	i := newIter(values, seps)
 	_, _, ok := i.next()
-	c.Assert(ok, Equals, false)
+	s.Equal(false, ok)
 
 	_, _, ok = i.next()
-	c.Assert(ok, Equals, false)
+	s.Equal(false, ok)
 }
 
-func (s *IterSuite) TestUnwind(c *C) {
+func (s *IterSuite) TestUnwind() {
 	tc := []charTc{
-		charTc{
+		{
 			name:  "Simple iteration",
 			input: []string{"hello"},
 			sep:   []byte{pathSep},
 		},
-		charTc{
+		{
 			name:  "Combined iteration",
 			input: []string{"hello", "world", "ha"},
 			sep:   []byte{pathSep, domainSep, domainSep},
 		},
 	}
-	for _, t := range tc {
-		i := newIter(t.input, t.sep)
+	for _, test := range tc {
+		i := newIter(test.input, test.sep)
 		var out []byte
 		for {
 			ch, _, ok := i.next()
@@ -46,11 +50,12 @@ func (s *IterSuite) TestUnwind(c *C) {
 			}
 			out = append(out, ch)
 		}
-		c.Assert(string(out), Equals, t.String(), Commentf("%v", t.name))
+
+		s.Equal(test.String(), string(out), "%v", test.name)
 	}
 }
 
-func (s *IterSuite) TestRecoverPosition(c *C) {
+func (s *IterSuite) TestRecoverPosition() {
 	i := newIter([]string{"hi", "world"}, []byte{pathSep, domainSep})
 	i.next()
 	i.next()
@@ -59,22 +64,22 @@ func (s *IterSuite) TestRecoverPosition(c *C) {
 	i.setPosition(p)
 
 	ch, sep, ok := i.next()
-	c.Assert(ok, Equals, true)
-	c.Assert(ch, Equals, byte('w'))
-	c.Assert(sep, Equals, byte(domainSep))
+	s.True(ok)
+	s.Equal(byte('w'), ch)
+	s.Equal(byte(domainSep), sep)
 }
 
-func (s *IterSuite) TestPushBack(c *C) {
+func (s *IterSuite) TestPushBack() {
 	i := newIter([]string{"hi", "world"}, []byte{pathSep, domainSep})
 	i.pushBack()
 	i.pushBack()
 	ch, sep, ok := i.next()
-	c.Assert(ok, Equals, true)
-	c.Assert(ch, Equals, byte('h'))
-	c.Assert(sep, Equals, byte(pathSep))
+	s.True(ok)
+	s.Equal(byte('h'), ch)
+	s.Equal(byte(pathSep), sep)
 }
 
-func (s *IterSuite) TestPushBackBoundary(c *C) {
+func (s *IterSuite) TestPushBackBoundary() {
 	i := newIter([]string{"hi", "world"}, []byte{pathSep, domainSep})
 	i.next()
 	i.next()
@@ -82,17 +87,17 @@ func (s *IterSuite) TestPushBackBoundary(c *C) {
 	i.pushBack()
 	i.pushBack()
 	ch, sep, ok := i.next()
-	c.Assert(ok, Equals, true)
-	c.Assert(fmt.Sprintf("%c", ch), Equals, "i")
-	c.Assert(fmt.Sprintf("%c", sep), Equals, fmt.Sprintf("%c", pathSep))
+	s.True(ok)
+	s.Equal("i", fmt.Sprintf("%c", ch))
+	s.Equal(fmt.Sprintf("%c", pathSep), fmt.Sprintf("%c", sep))
 }
 
-func (s *IterSuite) TestString(c *C) {
+func (s *IterSuite) TestString() {
 	i := newIter([]string{"hi"}, []byte{pathSep})
 	i.next()
-	c.Assert(i.String(), Equals, "<1:hi>")
+	s.Equal("<1:hi>", i.String())
 	i.next()
-	c.Assert(i.String(), Equals, "<end>")
+	s.Equal("<end>", i.String())
 }
 
 type charTc struct {

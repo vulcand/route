@@ -34,14 +34,18 @@ func parse(expression string, result *match) (matcher, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	out, err := p.Parse(expression)
 	if err != nil {
 		return nil, err
 	}
+
 	m, ok := out.(matcher)
 	if !ok {
 		return nil, fmt.Errorf("unknown result type: %T", out)
 	}
+
 	m.setMatch(result)
+	
 	return m, nil
 }

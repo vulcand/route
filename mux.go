@@ -1,6 +1,7 @@
 package route
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -42,7 +43,7 @@ func (m *Mux) applyAliases(expr string) (string, bool) {
 	return alias, alias != expr
 }
 
-// This adds a map of handlers and expressions in a single call. This allows
+// InitHandlers This adds a map of handlers and expressions in a single call. This allows
 // init to load many rules on first startup, thus reducing the time it takes to
 // create the initial mux.
 func (m *Mux) InitHandlers(handlers map[string]interface{}) error {
@@ -76,7 +77,7 @@ func (m *Mux) Handle(expr string, handler http.Handler) error {
 	return nil
 }
 
-// Handle adds http handler function for route expression
+// HandleFunc adds http handler function for route expression
 func (m *Mux) HandleFunc(expr string, handler func(http.ResponseWriter, *http.Request)) error {
 	return m.Handle(expr, http.HandlerFunc(handler))
 }
@@ -106,7 +107,7 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (m *Mux) SetNotFound(n http.Handler) error {
 	if n == nil {
-		return fmt.Errorf("Not Found handler cannot be nil. Operation rejected.")
+		return errors.New("not found handler cannot be nil: operation rejected")
 	}
 	m.notFound = n
 	return nil
@@ -121,13 +122,11 @@ func (m *Mux) IsValid(expr string) bool {
 }
 
 // NotFound is a generic http.Handler for request
-type notFound struct {
-}
+type notFound struct{}
 
 // ServeHTTP returns a simple 404 Not found response
-func (notFound) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (notFound) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprint(w, "Not found")
-
+	_, _ = fmt.Fprint(w, http.StatusText(http.StatusNotFound))
 }

@@ -1,6 +1,7 @@
 package route
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -16,6 +17,10 @@ type matcher interface {
 
 	canChain(matcher) bool
 	chain(matcher) (matcher, error)
+}
+
+type match struct {
+	val interface{}
 }
 
 func hostTrieMatcher(hostname string) (matcher, error) {
@@ -48,10 +53,6 @@ func headerTrieMatcher(name, value string) (matcher, error) {
 
 func headerRegexpMatcher(name, value string) (matcher, error) {
 	return newRegexpMatcher(value, &headerMapper{header: name}, &match{})
-}
-
-type match struct {
-	val interface{}
 }
 
 type andMatcher struct {
@@ -88,12 +89,12 @@ func (a *andMatcher) setMatch(m *match) {
 	a.b.setMatch(m)
 }
 
-func (a *andMatcher) canMerge(o matcher) bool {
+func (a *andMatcher) canMerge(_ matcher) bool {
 	return false
 }
 
-func (a *andMatcher) merge(o matcher) (matcher, error) {
-	return nil, fmt.Errorf("Method not supported")
+func (a *andMatcher) merge(_ matcher) (matcher, error) {
+	return nil, errors.New("method not supported")
 }
 
 func (a *andMatcher) match(req *http.Request) *match {
@@ -114,6 +115,15 @@ type regexpMatcher struct {
 	result *match
 }
 
+func newRegexpMatcher(expr string, mapper requestMapper, m *match) (matcher, error) {
+	r, err := regexp.Compile(expr)
+
+	if err != nil {
+		return nil, fmt.Errorf("bad regular expression: %s %w", expr, err)
+	}
+	return &regexpMatcher{expr: r, mapper: mapper, result: m}, nil
+}
+
 func (r *regexpMatcher) canChain(matcher) bool {
 	return false
 }
@@ -122,34 +132,25 @@ func (r *regexpMatcher) chain(matcher) (matcher, error) {
 	return nil, fmt.Errorf("not supported")
 }
 
-func (m *regexpMatcher) String() string {
-	return fmt.Sprintf("regexpMatcher(%v)", m.expr)
+func (r *regexpMatcher) String() string {
+	return fmt.Sprintf("regexpMatcher(%v)", r.expr)
 }
 
-func (m *regexpMatcher) setMatch(result *match) {
-	m.result = result
+func (r *regexpMatcher) setMatch(result *match) {
+	r.result = result
 }
 
-func newRegexpMatcher(expr string, mapper requestMapper, m *match) (matcher, error) {
-	r, err := regexp.Compile(expr)
-
-	if err != nil {
-		return nil, fmt.Errorf("Bad regular expression: %s %s", expr, err)
-	}
-	return &regexpMatcher{expr: r, mapper: mapper, result: m}, nil
-}
-
-func (m *regexpMatcher) canMerge(matcher) bool {
+func (r *regexpMatcher) canMerge(matcher) bool {
 	return false
 }
 
-func (m *regexpMatcher) merge(matcher) (matcher, error) {
-	return nil, fmt.Errorf("Method not supported")
+func (r *regexpMatcher) merge(matcher) (matcher, error) {
+	return nil, errors.New("method not supported")
 }
 
-func (m *regexpMatcher) match(req *http.Request) *match {
-	if m.expr.MatchString(m.mapper.mapRequest(req)) {
-		return m.result
+func (r *regexpMatcher) match(req *http.Request) *match {
+	if r.expr.MatchString(r.mapper.mapRequest(req)) {
+		return r.result
 	}
 	return nil
 }

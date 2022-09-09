@@ -5,7 +5,14 @@ import (
 	"strings"
 )
 
-// requestMapper maps the request to string e.g. maps request to it's hostname, or request to header
+const (
+	pathSep   = '/'
+	domainSep = '.'
+	headerSep = '/'
+	methodSep = ' '
+)
+
+// requestMapper maps the request to string e.g. maps request to its hostname, or request to header
 type requestMapper interface {
 	// separator returns the separator that makes sense for this request, e.g. / for urls or . for domains
 	separator() byte
@@ -18,8 +25,7 @@ type requestMapper interface {
 	newIter(r *http.Request) *charIter
 }
 
-type methodMapper struct {
-}
+type methodMapper struct{}
 
 func (m *methodMapper) separator() byte {
 	return methodSep
@@ -41,10 +47,9 @@ func (m *methodMapper) newIter(r *http.Request) *charIter {
 	return newIter([]string{m.mapRequest(r)}, []byte{m.separator()})
 }
 
-type pathMapper struct {
-}
+type pathMapper struct{}
 
-func (m *pathMapper) separator() byte {
+func (p *pathMapper) separator() byte {
 	return pathSep
 }
 
@@ -64,18 +69,17 @@ func (p *pathMapper) mapRequest(r *http.Request) string {
 	return rawPath(r)
 }
 
-type hostMapper struct {
-}
+type hostMapper struct{}
 
-func (p *hostMapper) equivalent(o requestMapper) requestMapper {
+func (h *hostMapper) equivalent(o requestMapper) requestMapper {
 	_, ok := o.(*hostMapper)
 	if ok {
-		return p
+		return h
 	}
 	return nil
 }
 
-func (m *hostMapper) separator() byte {
+func (h *hostMapper) separator() byte {
 	return domainSep
 }
 
@@ -83,8 +87,8 @@ func (h *hostMapper) mapRequest(r *http.Request) string {
 	return strings.Split(strings.ToLower(r.Host), ":")[0]
 }
 
-func (p *hostMapper) newIter(r *http.Request) *charIter {
-	return newIter([]string{p.mapRequest(r)}, []byte{p.separator()})
+func (h *hostMapper) newIter(r *http.Request) *charIter {
+	return newIter([]string{h.mapRequest(r)}, []byte{h.separator()})
 }
 
 type headerMapper struct {
@@ -99,7 +103,7 @@ func (h *headerMapper) equivalent(o requestMapper) requestMapper {
 	return nil
 }
 
-func (m *headerMapper) separator() byte {
+func (h *headerMapper) separator() byte {
 	return headerSep
 }
 
@@ -166,7 +170,8 @@ func (s *seqMapper) equivalent(o requestMapper) requestMapper {
 		longer = so
 		shorter = s
 	}
-	for i, _ := range longer.seq {
+
+	for i := range longer.seq {
 		// shorter is subset of longer, return longer sequence mapper
 		if i >= len(shorter.seq)-1 {
 			return longer
@@ -175,12 +180,6 @@ func (s *seqMapper) equivalent(o requestMapper) requestMapper {
 			return nil
 		}
 	}
+
 	return longer
 }
-
-const (
-	pathSep   = '/'
-	domainSep = '.'
-	headerSep = '/'
-	methodSep = ' '
-)

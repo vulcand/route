@@ -4,37 +4,31 @@ import (
 	"net/http"
 	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMatcher(t *testing.T) { TestingT(t) }
-
-type MatcherSuite struct {
-}
-
-var _ = Suite(&MatcherSuite{})
-
-func (s *MatcherSuite) TestHostnameCase(c *C) {
+func TestHostnameCase(t *testing.T) {
 	var matcher1, matcher2 matcher
 	var req *http.Request
 	var err error
 
-	req, err = http.NewRequest("GET", "http://example.com", nil)
-	c.Assert(err, IsNil)
+	req, err = http.NewRequest(http.MethodGet, "http://example.com", nil)
+	require.NoError(t, err)
 
 	matcher1, err = hostTrieMatcher("example.com")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	matcher2, err = hostTrieMatcher("Example.Com")
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
-	c.Assert(matcher1.match(req), Not(IsNil))
-	c.Assert(matcher2.match(req), Not(IsNil))
+	assert.NotNil(t, matcher1.match(req))
+	assert.NotNil(t, matcher2.match(req))
 
 	matcher1, err = hostRegexpMatcher(`.*example.com`)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 	matcher2, err = hostRegexpMatcher(`.*Example.Com`)
-	c.Assert(err, IsNil)
+	require.NoError(t, err)
 
-	c.Assert(matcher1.match(req), Not(IsNil))
-	c.Assert(matcher2.match(req), Not(IsNil))
+	assert.NotNil(t, matcher1.match(req))
+	assert.NotNil(t, matcher2.match(req))
 }

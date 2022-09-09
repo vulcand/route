@@ -3,76 +3,80 @@ package route
 import (
 	"bytes"
 	"net/http"
+	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/suite"
 )
 
 type MuxSuite struct {
+	suite.Suite
 }
 
-var _ = Suite(&MuxSuite{})
+func TestMuxSuite(t *testing.T) {
+	suite.Run(t, new(MuxSuite))
+}
 
-func (s *MuxSuite) TestEmptyOperationsSucceed(c *C) {
+func (s *MuxSuite) TestEmptyOperationsSucceed() {
 	r := NewMux()
 
-	t := newWriter()
-	r.ServeHTTP(t, makeReq(req{url: "/hello"}))
+	w := newWriter()
+	r.ServeHTTP(w, makeReq(req{url: "/hello"}))
 
-	c.Assert(t.header, Equals, 404)
-	c.Assert(t.buf.String(), Equals, "Not found")
+	s.Equal(http.StatusNotFound, w.header)
+	s.Equal(http.StatusText(http.StatusNotFound), w.buf.String())
 }
 
-func (s *MuxSuite) TestRouting(c *C) {
+func (s *MuxSuite) TestRouting() {
 	r := NewMux()
 
 	err := r.HandleFunc(`Host("localhost") && Path("/p")`, func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(201)
-		w.Write([]byte("/p"))
+		_, _ = w.Write([]byte("/p"))
 	})
-	c.Assert(err, IsNil)
+	s.Require().NoError(err)
 
-	t := newWriter()
-	r.ServeHTTP(t, makeReq(req{url: "/p", host: "localhost"}))
+	w := newWriter()
+	r.ServeHTTP(w, makeReq(req{url: "/p", host: "localhost"}))
 
-	c.Assert(t.header, Equals, 201)
-	c.Assert(t.buf.String(), Equals, "/p")
+	s.Equal(http.StatusCreated, w.header)
+	s.Equal("/p", w.buf.String())
 }
 
-func (s *MuxSuite) TestInitHandlers(c *C) {
+func (s *MuxSuite) TestInitHandlers() {
 	r := NewMux()
 
 	handlers := map[string]interface{}{
 		`Host("localhost") && Path("/p")`: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.WriteHeader(201)
-			w.Write([]byte("/p"))
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte("/p"))
 		}),
 		`Host("localhost") && Path("/f")`: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.WriteHeader(201)
-			w.Write([]byte("/f"))
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte("/f"))
 		}),
 	}
 
 	err := r.InitHandlers(handlers)
-	c.Assert(err, IsNil)
+	s.Require().NoError(err)
 
-	t := newWriter()
-	r.ServeHTTP(t, makeReq(req{url: "/p", host: "localhost"}))
+	w := newWriter()
+	r.ServeHTTP(w, makeReq(req{url: "/p", host: "localhost"}))
 
-	c.Assert(t.header, Equals, 201)
-	c.Assert(t.buf.String(), Equals, "/p")
+	s.Equal(http.StatusCreated, w.header)
+	s.Equal("/p", w.buf.String())
 
-	t = newWriter()
-	r.ServeHTTP(t, makeReq(req{url: "/f", host: "localhost"}))
+	w = newWriter()
+	r.ServeHTTP(w, makeReq(req{url: "/f", host: "localhost"}))
 
-	c.Assert(t.header, Equals, 201)
-	c.Assert(t.buf.String(), Equals, "/f")
+	s.Equal(http.StatusCreated, w.header)
+	s.Equal("/f", w.buf.String())
 }
 
-func (s *MuxSuite) TestAddAlias(c *C) {
+func (s *MuxSuite) TestAddAlias() {
 	expr := `Host("localhost") && Path("/p")`
 	f := func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(201)
-		w.Write([]byte("/p"))
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte("/p"))
 	}
 	handler := http.HandlerFunc(f)
 
@@ -96,38 +100,38 @@ func (s *MuxSuite) TestAddAlias(c *C) {
 		},
 	}
 
-	for _, t := range tests {
+	for _, test := range tests {
 		r := NewMux()
 		r.AddAlias(`Host("localhost")`, `Host("vulcand.net")`)
 		r.AddAlias(`Path("/p")`, `Path("/g")`)
 
-		err := t.Init(r)
-		c.Assert(err, IsNil)
+		err := test.Init(r)
+		s.Require().NoError(err)
 
 		// Should continue to route non aliased requests
 		w := newWriter()
 		r.ServeHTTP(w, makeReq(req{url: "/p", host: "localhost"}))
-		c.Assert(w.header, Equals, 201)
+		s.Equal(http.StatusCreated, w.header)
 
 		// Should route requests to /g for vulcand.net
 		r.ServeHTTP(w, makeReq(req{url: "/g", host: "vulcand.net"}))
-		c.Assert(w.header, Equals, 201)
+		s.Equal(http.StatusCreated, w.header)
 
 		// After removing the expression
 		err = r.Remove(expr)
-		c.Assert(err, IsNil)
+		s.Require().NoError(err)
 
 		// Should NOT route /g vulcand.net
 		w = newWriter()
 		r.ServeHTTP(w, makeReq(req{url: "/g", host: "vulcand.net"}))
-		c.Assert(w.header, Equals, 404)
+		s.Equal(http.StatusNotFound, w.header)
 	}
 }
 
-func (s *MuxSuite) TestAddAliasOrder(c *C) {
+func (s *MuxSuite) TestAddAliasOrder() {
 	f := func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(201)
-		w.Write([]byte("/p"))
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte("/p"))
 	}
 
 	r := NewMux()
@@ -135,18 +139,17 @@ func (s *MuxSuite) TestAddAliasOrder(c *C) {
 	r.AddAlias(`Host("localhost")`, `Host("vulcand.net")`)
 	r.AddAlias(`Host("vulcand.net")`, `Host("mailgun.net")`)
 
-	err := r.InitHandlers(map[string]interface{}{
-		`Host("localhost") && Path("/p")`: http.HandlerFunc(f)})
-	c.Assert(err, IsNil)
+	err := r.InitHandlers(map[string]interface{}{`Host("localhost") && Path("/p")`: http.HandlerFunc(f)})
+	s.Require().NoError(err)
 
 	// Should continue to route non aliased requests
 	w := newWriter()
 	r.ServeHTTP(w, makeReq(req{url: "/p", host: "localhost"}))
-	c.Assert(w.header, Equals, 201)
+	s.Equal(http.StatusCreated, w.header)
 
 	// Should route requests to /g for vulcand.net
 	r.ServeHTTP(w, makeReq(req{url: "/p", host: "mailgun.net"}))
-	c.Assert(w.header, Equals, 201)
+	s.Equal(http.StatusCreated, w.header)
 }
 
 type testWriter struct {
@@ -162,18 +165,18 @@ func newWriter() *testWriter {
 	}
 }
 
-func (t *testWriter) Header() http.Header {
-	return t.headers
+func (w *testWriter) Header() http.Header {
+	return w.headers
 }
 
-func (t *testWriter) Write(p []byte) (n int, err error) {
-	return t.buf.Write(p)
+func (w *testWriter) Write(p []byte) (n int, err error) {
+	return w.buf.Write(p)
 }
 
-func (t *testWriter) WriteString(s string) (n int, err error) {
-	return t.buf.WriteString(s)
+func (w *testWriter) WriteString(s string) (n int, err error) {
+	return w.buf.WriteString(s)
 }
 
-func (t *testWriter) WriteHeader(h int) {
-	t.header = h
+func (w *testWriter) WriteHeader(h int) {
+	w.header = h
 }
