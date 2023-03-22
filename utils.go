@@ -19,7 +19,7 @@ func rawPath(r *http.Request) string {
 		path = "/"
 	}
 	// This is absolute URI, split host and port
-	if strings.Contains(path, "://") {
+	if r.URL.Host != "" && strings.Contains(path, "://") {
 		values := strings.SplitN(path, r.URL.Host, 2)
 		if len(values) == 2 {
 			path = values[1]

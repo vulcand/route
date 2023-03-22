@@ -18,6 +18,7 @@ func Test_rawPath(t *testing.T) {
 		{URL: "/home", Expected: "/home"},
 		{URL: "/home?a=b", Expected: "/home"},
 		{URL: "/home%2F", Expected: "/home%2F"},
+		{URL: "/oauth/callback?scope=email%20https://www.googleapis.com/auth/userinfo.email%20openid", Expected: "/oauth/callback"},
 	}
 	for _, v := range values {
 		out := rawPath(makeReq(req{url: v.URL}))
