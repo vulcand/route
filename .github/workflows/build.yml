@@ -11,7 +11,7 @@ on:
       - master
 
 env:
-  GOLANGCI_LINT_VERSION: v1.5901
+  GOLANGCI_LINT_VERSION: v1.59.1
 
 jobs:
   build:
