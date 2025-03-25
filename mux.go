@@ -38,7 +38,7 @@ func (m *Mux) AddAlias(match, replace string) {
 func (m *Mux) applyAliases(expr string) (string, bool) {
 	alias := expr
 	for _, a := range m.aliases {
-		alias = strings.Replace(alias, a.match, a.replace, -1)
+		alias = strings.ReplaceAll(alias, a.match, a.replace)
 	}
 	return alias, alias != expr
 }
