@@ -244,6 +244,12 @@ func (s *TrieSuite) TestMergeAndMatchCases() {
 			url:      "http://google.com/v42/domains/domain1",
 			expected: "/v<int:version>/domains/<string:name>",
 		},
+		// Int matcher at the end of the Trie
+		{
+			[]string{"/v<int:version>/domains/<int:name>"},
+			"http://google.com/v42/domains/1",
+			"/v<int:version>/domains/<int:name>",
+		},
 		// Int matcher, no match
 		{
 			trees:    []string{"/v<int:version>/domains/<string:name>", "/<string:version>/domains/<string:name>"},
