@@ -11,7 +11,7 @@ on:
       - master
 
 env:
-  GOLANGCI_LINT_VERSION: v2.0.1
+  GOLANGCI_LINT_VERSION: v2.5.0
 
 jobs:
   build:
@@ -21,8 +21,8 @@ jobs:
         go-version: [stable, oldstable]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
 
